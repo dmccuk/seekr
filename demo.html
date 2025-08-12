@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seekr.run, Gameplay demo</title>
+  <meta name="description" content="Seekr.run gameplay demo, set a game area, rules, and get a code" />
+  <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <style>
+    :root{
+      --ink:#0e1220; --muted:#55627a; --bg:#f6f8fc; --card:#ffffff;
+      --brand:#1e4cff; --accent:#35c18f; --line:#e7ecf3;
+      --good:#1f7a48; --bad:#b00020;
+    }
+    *{ box-sizing:border-box }
+    html, body{ height:100% }
+    body{
+      margin:0; background:var(--bg); color:var(--ink);
+      font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height:1.35;
+    }
+    .shell{ max-width:1100px; margin:0 auto; padding:24px 16px 48px }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px }
+    .brand{ font-weight:800; letter-spacing:.4px }
+    .subtle{ color:var(--muted); font-size:13px }
+
+    .grid{
+      display:grid; grid-template-columns:1.2fr .8fr; gap:18px;
+    }
+    @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+
+    .card{
+      background:var(--card); border:1px solid var(--line);
+      border-radius:14px; padding:14px; box-shadow:0 8px 22px rgba(20,32,70,.06);
+    }
+    .card h2{ margin:4px 0 10px 0; font-size:18px; font-weight:800 }
+    .row{ display:flex; gap:10px; align-items:center; }
+    label{ font-size:13px; color:var(--muted) }
+    input[type="text"], input[type="number"], select{
+      border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-family:inherit;
+      background:#fff; width:100%;
+    }
+    .switch{
+      display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
+      font-size:13px; color:var(--ink);
+    }
+    .switch input{ display:none }
+    .track{
+      width:46px; height:26px; background:#d7deea; border-radius:999px; position:relative; transition:background .2s;
+    }
+    .dot{
+      position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
+      background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); transition:left .2s;
+    }
+    .switch input:checked + .track{ background:#26a269 }
+    .switch input:checked + .track .dot{ left:23px }
+
+    .btn{
+      appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff;
+      background:linear-gradient(135deg,#4facfe,#00f2fe); cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35);
+    }
+    .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
+    .btn.copy{ background:linear-gradient(135deg,#35c18f,#2bb07f) }
+
+    .stack{ display:grid; gap:10px }
+    .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+    @media (max-width:520px){ .two{ grid-template-columns:1fr } }
+
+    #map{ width:100%; height:min(64vh,520px); border-radius:12px; overflow:hidden }
+
+    .codeBox{
+      display:flex; gap:8px; align-items:center;
+      background:#f7f9ff; border:1px dashed #c7d2ee; padding:10px 12px; border-radius:12px;
+    }
+    .code{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight:800; letter-spacing:.12em }
+    .muted{ color:var(--muted) }
+    .wallet{
+      display:flex; align-items:center; gap:10px; background:#f1f6f2; border:1px solid #d9eadf; padding:10px 12px; border-radius:12px;
+    }
+    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a; }
+
+    .footnote{ margin-top:10px; font-size:12px; color:var(--muted) }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="brand">Seekr.run</div>
+        <div class="subtle">Gameplay demo, set an area, configure rules, get a dummy code</div>
+      </div>
+      <a href="index.html" class="btn secondary">Back to landing</a>
+    </header>
+
+    <div class="grid">
+      <!-- Map and area selection -->
+      <section class="card">
+        <h2>Pick your playing area</h2>
+        <div id="map" role="img" aria-label="Select a game area on map"></div>
+        <div class="two" style="margin-top:10px;">
+          <div class="stack">
+            <label for="radiusKm">Area radius, km</label>
+            <input id="radiusKm" type="number" min="0.2" max="50" step="0.1" value="0.6" />
+          </div>
+          <div class="stack">
+            <label class="muted">Center, drag the pin to move</label>
+            <div class="pill" id="centerReadout">lat 0, lng 0</div>
+          </div>
+        </div>
+        <div class="footnote">Your location is used only to center this demo map.</div>
+      </section>
+
+      <!-- Rules and dummy code -->
+      <section class="card">
+        <h2>Rules</h2>
+        <div class="two">
+          <div class="stack">
+            <label for="gameLen">Game length, minutes</label>
+            <input id="gameLen" type="number" min="5" max="240" step="5" value="30" />
+          </div>
+          <div class="stack">
+            <label for="tagDist">Tag distance, meters</label>
+            <input id="tagDist" type="number" min="2" max="50" step="1" value="8" />
+          </div>
+        </div>
+
+        <div class="stack" style="margin-top:10px;">
+          <label>Power ups</label>
+          <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay ping</label>
+          <label class="switch"><input id="puReveal" type="checkbox" checked><span class="track"><span class="dot"></span></span>Instant reveal</label>
+          <label class="switch"><input id="puGhost" type="checkbox"><span class="track"><span class="dot"></span></span>Ghost trail, short decoy path</label>
+        </div>
+
+        <div class="two" style="margin-top:10px;">
+          <div class="stack">
+            <label for="pingMins">Reveal ping, minutes</label>
+            <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
+          </div>
+          <div class="stack">
+            <label>Wallet</label>
+            <div class="wallet">
+              <strong>$2.59</strong>
+              <span class="muted">demo balance</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stack" style="margin-top:14px;">
+          <div class="codeBox">
+            <div class="muted">Game code</div>
+            <div id="code" class="code">AAAAAA</div>
+            <button id="btnCode" class="btn copy" type="button">Generate</button>
+            <button id="btnCopy" class="btn secondary" type="button">Copy</button>
+          </div>
+          <button id="btnStart" class="btn" type="button">Start demo round</button>
+          <div id="status" class="footnote"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Map setup
+    let map, centerMarker, areaCircle;
+    const centerReadout = document.getElementById('centerReadout');
+    const radiusInput = document.getElementById('radiusKm');
+
+    function setReadout(latlng){
+      centerReadout.textContent = 'lat ' + latlng.lat.toFixed(5) + ', lng ' + latlng.lng.toFixed(5);
+    }
+
+    function initMap(lat=51.505, lng=-0.09){
+      map = L.map('map', { zoomControl:true, attributionControl:false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      const start = L.latLng(lat, lng);
+      map.setView(start, 15);
+
+      centerMarker = L.marker(start, { draggable:true }).addTo(map);
+      areaCircle = L.circle(start, { radius: Number(radiusInput.value) * 1000, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:0.12 }).addTo(map);
+      setReadout(start);
+
+      centerMarker.on('drag', e => {
+        const p = e.target.getLatLng();
+        areaCircle.setLatLng(p);
+        setReadout(p);
+      });
+
+      radiusInput.addEventListener('input', () => {
+        const km = Math.max(0.2, Math.min(50, Number(radiusInput.value) || 0.6));
+        areaCircle.setRadius(km * 1000);
+      });
+    }
+
+    // Try geolocation for centering
+    if (location.protocol === 'https:' && 'geolocation' in navigator){
+      navigator.geolocation.getCurrentPosition(
+        pos => initMap(pos.coords.latitude, pos.coords.longitude),
+        ()  => initMap(),
+        { enableHighAccuracy:true, maximumAge:60000, timeout:12000 }
+      );
+    }else{
+      initMap();
+    }
+
+    // Dummy code generator, copy, and start button
+    const codeEl = document.getElementById('code');
+    const btnCode = document.getElementById('btnCode');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnStart = document.getElementById('btnStart');
+    const statusEl = document.getElementById('status');
+
+    function makeCode(len=6){
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let out = '';
+      for(let i=0;i<len;i++){ out += chars[Math.floor(Math.random()*chars.length)]; }
+      return out;
+    }
+
+    btnCode.addEventListener('click', () => {
+      codeEl.textContent = makeCode();
+      statusEl.textContent = 'New demo code created, share this with friends';
+      statusEl.style.color = 'var(--good)';
+    });
+
+    btnCopy.addEventListener('click', async () => {
+      try{
+        await navigator.clipboard.writeText(codeEl.textContent);
+        statusEl.textContent = 'Code copied to clipboard';
+        statusEl.style.color = 'var(--good)';
+      }catch{
+        statusEl.textContent = 'Could not copy, press and hold to select the code';
+        statusEl.style.color = 'var(--bad)';
+      }
+    });
+
+    btnStart.addEventListener('click', () => {
+      const cfg = {
+        center: centerMarker.getLatLng(),
+        radius_km: Number(radiusInput.value),
+        game_minutes: Number(document.getElementById('gameLen').value),
+        tag_meters: Number(document.getElementById('tagDist').value),
+        ping_minutes: Number(document.getElementById('pingMins').value),
+        powerups: {
+          delay: document.getElementById('puDelay').checked,
+          reveal: document.getElementById('puReveal').checked,
+          ghost: document.getElementById('puGhost').checked
+        },
+        code: codeEl.textContent
+      };
+      console.log('Demo config', cfg);
+      statusEl.textContent = 'Demo round created, code ' + cfg.code + ', map centered to your chosen area';
+      statusEl.style.color = 'var(--good)';
+    });
+  </script>
+</body>
+</html>
