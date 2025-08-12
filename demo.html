@@ -12,6 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
 
+  <!-- Font Awesome for WhatsApp icon -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -72,6 +75,13 @@
     .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
     .btn.copy{ background:linear-gradient(135deg,#35c18f,#2bb07f) }
 
+    .whatsapp-btn{
+      background:#25D366; color:#fff; border-radius:50%; width:46px; height:46px;
+      display:flex; align-items:center; justify-content:center; font-size:22px; border:none;
+      cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.15);
+    }
+    .whatsapp-btn:hover{ background:#20b358 }
+
     .stack{ display:grid; gap:10px }
     .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
     @media (max-width:520px){ .two{ grid-template-columns:1fr } }
@@ -99,9 +109,11 @@
         <div class="brand">Seekr.run</div>
         <div class="subtle">Gameplay demo, set an area, configure rules, get a dummy code</div>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <a href="index.html" class="btn secondary">Back to landing</a>
-        <button id="shareBtn" class="btn" type="button">Share Seekr.run</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <a href="index.html" class="btn secondary">Back</a>
+        <button id="shareTop" class="whatsapp-btn" title="Share on WhatsApp">
+          <i class="fab fa-whatsapp"></i>
+        </button>
       </div>
     </header>
 
@@ -167,6 +179,13 @@
           </div>
           <button id="btnStart" class="btn" type="button">Start demo round</button>
           <div id="status" class="footnote"></div>
+
+          <!-- WhatsApp share button under rules -->
+          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+            <button id="shareBottom" class="whatsapp-btn" title="Share on WhatsApp">
+              <i class="fab fa-whatsapp"></i>
+            </button>
+          </div>
         </div>
       </section>
     </div>
@@ -204,7 +223,6 @@
       });
     }
 
-    // Try geolocation for centering
     if (location.protocol === 'https:' && 'geolocation' in navigator){
       navigator.geolocation.getCurrentPosition(
         pos => initMap(pos.coords.latitude, pos.coords.longitude),
@@ -215,7 +233,6 @@
       initMap();
     }
 
-    // Dummy code generator, copy, and start button
     const codeEl = document.getElementById('code');
     const btnCode = document.getElementById('btnCode');
     const btnCopy = document.getElementById('btnCopy');
@@ -265,31 +282,13 @@
       statusEl.style.color = 'var(--good)';
     });
 
-    // Share button
-    const shareBtn = document.getElementById('shareBtn');
-    shareBtn.addEventListener('click', async () => {
-      const shareData = {
-        title: 'Seekr.run Gameplay Demo',
-        text: 'Try the Seekr.run gameplay demo, set a game area and rules',
-        url: window.location.href
-      };
+    function shareWhatsApp(){
+      const message = encodeURIComponent("Check out Seekr.run, the GPS hide-and-seek game! " + window.location.href);
+      window.open("https://wa.me/?text=" + message, "_blank");
+    }
 
-      if (navigator.share) {
-        try {
-          await navigator.share(shareData);
-          console.log('Shared successfully');
-        } catch (err) {
-          console.warn('Share cancelled', err);
-        }
-      } else {
-        try {
-          await navigator.clipboard.writeText(shareData.url);
-          alert('Link copied to clipboard, you can now share it with friends.');
-        } catch (err) {
-          alert('Could not copy link, please copy manually: ' + shareData.url);
-        }
-      }
-    });
+    document.getElementById('shareTop').addEventListener('click', shareWhatsApp);
+    document.getElementById('shareBottom').addEventListener('click', shareWhatsApp);
   </script>
 </body>
 </html>
