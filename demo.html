@@ -99,7 +99,10 @@
         <div class="brand">Seekr.run</div>
         <div class="subtle">Gameplay demo, set an area, configure rules, get a dummy code</div>
       </div>
-      <a href="index.html" class="btn secondary">Back to landing</a>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a href="index.html" class="btn secondary">Back to landing</a>
+        <button id="shareBtn" class="btn" type="button">Share Seekr.run</button>
+      </div>
     </header>
 
     <div class="grid">
@@ -260,6 +263,32 @@
       console.log('Demo config', cfg);
       statusEl.textContent = 'Demo round created, code ' + cfg.code + ', map centered to your chosen area';
       statusEl.style.color = 'var(--good)';
+    });
+
+    // Share button
+    const shareBtn = document.getElementById('shareBtn');
+    shareBtn.addEventListener('click', async () => {
+      const shareData = {
+        title: 'Seekr.run Gameplay Demo',
+        text: 'Try the Seekr.run gameplay demo, set a game area and rules',
+        url: window.location.href
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+          console.log('Shared successfully');
+        } catch (err) {
+          console.warn('Share cancelled', err);
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(shareData.url);
+          alert('Link copied to clipboard, you can now share it with friends.');
+        } catch (err) {
+          alert('Could not copy link, please copy manually: ' + shareData.url);
+        }
+      }
     });
   </script>
 </body>
