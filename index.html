@@ -94,6 +94,45 @@
     }
     .card:hover::after, .card:focus-visible::after, .card.show-tip::after{ opacity:1 }
 
+    /* FAQ */
+    .faq{
+      margin-top:28px;
+      text-align:left;
+    }
+    .faq h2{
+      margin:8px 0 14px 0; font-size:22px; font-weight:800;
+      text-align:center;
+    }
+    details{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px 14px;
+      margin-bottom:10px;
+    }
+    details[open]{ box-shadow:0 8px 22px rgba(20,32,70,.06) }
+    summary{
+      list-style:none;
+      cursor:pointer;
+      font-weight:600;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      outline:none;
+    }
+    summary::-webkit-details-marker{ display:none }
+    .chev{
+      width:18px; height:18px; border:2px solid var(--muted); border-left:0; border-top:0;
+      transform:rotate(-45deg); transition: transform .2s ease, border-color .2s ease;
+      margin-left:auto;
+    }
+    details[open] .chev{ transform:rotate(135deg); border-color: var(--ink) }
+    .answer{
+      color:var(--muted);
+      margin-top:8px;
+      line-height:1.55;
+    }
+
     @media (max-width:720px){
       h1{ font-size:28px }
       .features{ grid-template-columns:1fr }
@@ -144,6 +183,66 @@
           <small>Delay ping and instant reveal, funded from a small balance</small>
         </div>
       </div>
+
+      <!-- FAQ -->
+      <section class="faq" aria-label="Frequently asked questions">
+        <h2>FAQ</h2>
+
+        <details>
+          <summary>How do I set up a game?<span class="chev"></span></summary>
+          <div class="answer">Pick a game area, share a code with friends, then choose who is seeker and who is hider. Everything runs in the browser.</div>
+        </details>
+
+        <details>
+          <summary>Is it free to play?<span class="chev"></span></summary>
+          <div class="answer">Yes. Games are free. Optional power ups cost a small amount if you want extra strategy.</div>
+        </details>
+
+        <details>
+          <summary>Do I need an app?<span class="chev"></span></summary>
+          <div class="answer">No app needed. Visit the site on iPhone or Android, enter the code, and play.</div>
+        </details>
+
+        <details>
+          <summary>How does the seeker find hiders?<span class="chev"></span></summary>
+          <div class="answer">Hider locations appear on the map at set intervals. The seeker uses those pings to close in.</div>
+        </details>
+
+        <details>
+          <summary>How do I win?<span class="chev"></span></summary>
+          <div class="answer">Hiders win by staying untagged until the end. The seeker wins by tagging every hider before time is up.</div>
+        </details>
+
+        <details>
+          <summary>How is tagging detected?<span class="chev"></span></summary>
+          <div class="answer">When players are within a set GPS distance, for example 5 to 10 meters, the game registers a tag automatically.</div>
+        </details>
+
+        <details>
+          <summary>How accurate is GPS?<span class="chev"></span></summary>
+          <div class="answer">Outdoors, accuracy is usually within a few meters. In dense areas it may drift a bit. Open spaces work best.</div>
+        </details>
+
+        <details>
+          <summary>What are power ups exactly?<span class="chev"></span></summary>
+          <div class="answer">Delay Ping lets you pause your next reveal. Instant Reveal shows hiders right now. Limits and cooldowns keep it fair.</div>
+        </details>
+
+        <details>
+          <summary>Can we set our own rules?<span class="chev"></span></summary>
+          <div class="answer">Yes. The host can set duration, reveal timing, tag distance, and which power ups are allowed.</div>
+        </details>
+
+        <details>
+          <summary>What happens if I go out of bounds?<span class="chev"></span></summary>
+          <div class="answer">If you leave the set game area, you’ll get a warning and a short grace period to return. If you stay outside the boundary past that time, you may be disqualified for that round.</div>
+        </details>
+        
+        <details>
+          <summary>Is it safe?<span class="chev"></span></summary>
+          <div class="answer">Play in safe areas, respect property and local laws, and keep an eye on your surroundings. Hider reveals include a small privacy offset.</div>
+        </details>
+      </section>
     </section>
   </div>
 
@@ -156,7 +255,6 @@
         clearTimeout(el._tipTimer);
         el._tipTimer = setTimeout(() => el.classList.remove('show-tip'), 2200);
       });
-      // Hide when focus leaves
       el.addEventListener('blur', () => el.classList.remove('show-tip'));
     });
   </script>
