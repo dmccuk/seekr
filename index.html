@@ -83,8 +83,9 @@
     }
 
     .coming{
-      position:relative; /* for tooltip */
-      margin:18px auto 6px;
+      position:relative;
+      margin:14px auto 6px; /* was 18px auto 6px */
+      top:-4px;             /* raises it up */
       display:inline-block;
       font-weight:800;
       letter-spacing:.08em;
@@ -99,6 +100,7 @@
       animation:pulse 1.6s ease-in-out infinite;
       vertical-align:middle;
     }
+
     /* Tooltip for Coming soon */
     .coming::after{
       content:attr(data-tooltip);
@@ -130,7 +132,7 @@
       margin-left:8px;
       vertical-align:middle;
       position:relative;
-      top:6px; /* nudges button down */
+      top:2px; /* nudges button down */
     }
     .whatsapp-btn:hover{ background:#20b358 }
     .whatsapp-btn svg{ width:18px; height:18px; display:block; fill:currentColor }
