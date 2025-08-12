@@ -257,7 +257,8 @@
     
       <form id="interestForm" action="https://formspree.io/f/mqalnlka" method="POST"
             class="join" style="flex-wrap:wrap; gap:10px;">
-        <input type="email" name="email" placeholder="Your email" aria-label="Your email"
+        <input type="email" name="email" autocomplete="email"
+               placeholder="Your email" aria-label="Your email"
                required style="width:220px;">
     
         <label style="width:100%; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);">
@@ -267,11 +268,12 @@
     
         <!-- honeypot field to block spam -->
         <input type="text" name="extra_field" tabindex="-1" autocomplete="off"
+               aria-hidden="true"
                style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
     
         <button id="btnRegister" type="submit" style="opacity:1; cursor:pointer;">Notify me</button>
     
-        <small id="formMsg" style="width:100%; text-align:center; color:var(--muted); display:none;"></small>
+        <small id="formMsg" style="width:100%; text-align:center; color:#1f7a48; display:none;"></small>
       </form>
     
       <small class="sub" style="display:block; margin-top:10px;">
@@ -280,7 +282,7 @@
     </section>
     
     <script>
-      // Inline success/error message handler
+      // Inline success and error message handler
       const form = document.getElementById('interestForm');
       const msg = document.getElementById('formMsg');
       const btn = document.getElementById('btnRegister');
@@ -288,11 +290,14 @@
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         msg.style.display = 'none';
-        btn.disabled = true; btn.textContent = 'Sending...';
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
     
         try{
           const data = new FormData(form);
-          if(!data.get('email') || !data.get('consent')) throw new Error('Please enter your email and consent');
+          if(!data.get('email') || !data.get('consent')) {
+            throw new Error('Please enter your email and consent');
+          }
     
           const resp = await fetch(form.action, {
             method: 'POST',
@@ -314,7 +319,8 @@
           msg.style.color = '#b00020';
           msg.style.display = 'block';
         }finally{
-          btn.disabled = false; btn.textContent = 'Notify me';
+          btn.disabled = false;
+          btn.textContent = 'Notify me';
         }
       });
     </script>
