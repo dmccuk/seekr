@@ -40,14 +40,14 @@
     .grid{
       display:grid; grid-template-columns:1.2fr .8fr; gap:18px;
     }
-    @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+    @media (max-width:900px){ .grid{ grid-template-columns:1fr } }
 
     .card{
       background:var(--card); border:1px solid var(--line);
       border-radius:14px; padding:14px; box-shadow:0 8px 22px rgba(20,32,70,.06);
     }
     .card h2{ margin:4px 0 10px 0; font-size:18px; font-weight:800 }
-    .row{ display:flex; gap:10px; align-items:center; }
+    .row{ display:flex; gap:10px; align-items:center }
     label{ font-size:13px; color:var(--muted) }
     input[type="text"], input[type="number"], select{
       border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-family:inherit;
@@ -89,15 +89,16 @@
     #map{ width:100%; height:min(64vh,520px); border-radius:12px; overflow:hidden }
 
     .codeBox{
-      display:flex; gap:8px; align-items:center;
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
       background:#f7f9ff; border:1px dashed #c7d2ee; padding:10px 12px; border-radius:12px;
     }
     .code{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight:800; letter-spacing:.12em }
+
     .muted{ color:var(--muted) }
     .wallet{
       display:flex; align-items:center; gap:10px; background:#f1f6f2; border:1px solid #d9eadf; padding:10px 12px; border-radius:12px;
     }
-    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a; }
+    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a }
 
     .footnote{ margin-top:10px; font-size:12px; color:var(--muted) }
   </style>
@@ -175,17 +176,13 @@
             <div class="muted">Game code</div>
             <div id="code" class="code">AAAAAA</div>
             <button id="btnCode" class="btn copy" type="button">Generate</button>
-            <button id="btnCopy" class="btn secondary" type="button">Copy</button>
-          </div>
-          <button id="btnStart" class="btn" type="button">Start demo round</button>
-          <div id="status" class="footnote"></div>
-
-          <!-- WhatsApp share button under rules -->
-          <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-            <button id="shareBottom" class="whatsapp-btn" title="Share on WhatsApp">
+            <!-- WhatsApp share replaces Copy -->
+            <button id="btnShareWA" class="whatsapp-btn" type="button" title="Share on WhatsApp">
               <i class="fab fa-whatsapp"></i>
             </button>
           </div>
+          <button id="btnStart" class="btn" type="button">Start demo round</button>
+          <div id="status" class="footnote"></div>
         </div>
       </section>
     </div>
@@ -233,9 +230,9 @@
       initMap();
     }
 
+    // Demo logic
     const codeEl = document.getElementById('code');
     const btnCode = document.getElementById('btnCode');
-    const btnCopy = document.getElementById('btnCopy');
     const btnStart = document.getElementById('btnStart');
     const statusEl = document.getElementById('status');
 
@@ -250,17 +247,6 @@
       codeEl.textContent = makeCode();
       statusEl.textContent = 'New demo code created, share this with friends';
       statusEl.style.color = 'var(--good)';
-    });
-
-    btnCopy.addEventListener('click', async () => {
-      try{
-        await navigator.clipboard.writeText(codeEl.textContent);
-        statusEl.textContent = 'Code copied to clipboard';
-        statusEl.style.color = 'var(--good)';
-      }catch{
-        statusEl.textContent = 'Could not copy, press and hold to select the code';
-        statusEl.style.color = 'var(--bad)';
-      }
     });
 
     btnStart.addEventListener('click', () => {
@@ -282,13 +268,24 @@
       statusEl.style.color = 'var(--good)';
     });
 
-    function shareWhatsApp(){
-      const message = encodeURIComponent("Check out Seekr.run, the GPS hide-and-seek game! " + window.location.href);
-      window.open("https://wa.me/?text=" + message, "_blank");
+    // WhatsApp share, includes code plus URL
+    const shareTopBtn = document.getElementById('shareTop');
+    const shareWABtn = document.getElementById('btnShareWA');
+
+    function sharePage(){
+      const message = encodeURIComponent('Check out Seekr.run, the GPS hide and seek demo ' + window.location.href);
+      window.open('https://wa.me/?text=' + message, '_blank');
+    }
+    function shareCodeAndUrl(){
+      const code = codeEl.textContent.trim();
+      const url = new URL(window.location.href);
+      url.searchParams.set('code', code);
+      const message = encodeURIComponent('Join my Seekr.run demo game, code ' + code + ' ' + url.toString());
+      window.open('https://wa.me/?text=' + message, '_blank');
     }
 
-    document.getElementById('shareTop').addEventListener('click', shareWhatsApp);
-    document.getElementById('shareBottom').addEventListener('click', shareWhatsApp);
+    shareTopBtn.addEventListener('click', sharePage);
+    shareWABtn.addEventListener('click', shareCodeAndUrl);
   </script>
 </body>
 </html>
