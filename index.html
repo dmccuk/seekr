@@ -221,6 +221,23 @@
 
       <div class="coming" tabindex="0" aria-hidden="false" data-tooltip="Sign up for early access below">Coming soon</div>
 
+      <!-- New share button -->
+      <button id="shareBtn" class="gpsBtn" type="button" style="margin-top:10px;">Share Seekr.run</button>
+
+      <div class="stage">
+        <div class="phone fade-in" aria-label="Phone mockup">
+          <div class="screen">
+            <!-- Fallback video, visible by default -->
+            <video id="demoVideo" playsinline autoplay muted loop>
+              <source src="assets/seekr.mp4" type="video/mp4" />
+            </video>
+            <!-- Live map, hidden until GPS permission is granted -->
+            <div id="liveMap" role="img" aria-label="Your location on the map"></div>
+          </div>
+        </div>
+      </div>
+
+    
       <div class="stage">
         <div class="phone fade-in" aria-label="Phone mockup">
           <div class="screen">
@@ -474,6 +491,34 @@
         console.warn(err);
         limitNote.style.display = 'block';
       }, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+    });
+  </script>
+
+    <!-- Share button script -->
+  <script>
+    const shareBtn = document.getElementById('shareBtn');
+    shareBtn.addEventListener('click', async () => {
+      const shareData = {
+        title: 'Seekr.run',
+        text: 'Check out Seekr.run, GPS hide and seek at global scale!',
+        url: window.location.href
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+          console.log('Shared successfully');
+        } catch (err) {
+          console.warn('Share cancelled', err);
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(shareData.url);
+          alert('Link copied to clipboard, you can now share it with friends.');
+        } catch (err) {
+          alert('Could not copy link, please copy manually: ' + shareData.url);
+        }
+      }
     });
   </script>
 </body>
