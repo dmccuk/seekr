@@ -249,6 +249,77 @@
         </div>
       </div>
 
+      
+    <!-- Interest signup -->
+    <section class="hero" style="margin-top:22px;">
+      <h2 style="margin:0 0 8px 0; font-size:22px; font-weight:800;">Get early access</h2>
+      <p class="sub" style="margin:0 0 14px 0;">Register your interest, we will email you when Seekr.run opens.</p>
+    
+      <form id="interestForm" action="https://formspree.io/f/mqalnlka" method="POST"
+            class="join" style="flex-wrap:wrap; gap:10px;">
+        <input type="email" name="email" placeholder="Your email" aria-label="Your email"
+               required style="width:220px;">
+    
+        <label style="width:100%; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);">
+          <input type="checkbox" name="consent" required>
+          I agree to receive early access updates about Seekr.run
+        </label>
+    
+        <!-- honeypot field to block spam -->
+        <input type="text" name="extra_field" tabindex="-1" autocomplete="off"
+               style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+    
+        <button id="btnRegister" type="submit" style="opacity:1; cursor:pointer;">Notify me</button>
+    
+        <small id="formMsg" style="width:100%; text-align:center; color:var(--muted); display:none;"></small>
+      </form>
+    
+      <small class="sub" style="display:block; margin-top:10px;">
+        We will only use your email for Seekr.run updates, you can opt out any time.
+      </small>
+    </section>
+    
+    <script>
+      // Inline success/error message handler
+      const form = document.getElementById('interestForm');
+      const msg = document.getElementById('formMsg');
+      const btn = document.getElementById('btnRegister');
+    
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.style.display = 'none';
+        btn.disabled = true; btn.textContent = 'Sending...';
+    
+        try{
+          const data = new FormData(form);
+          if(!data.get('email') || !data.get('consent')) throw new Error('Please enter your email and consent');
+    
+          const resp = await fetch(form.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: data
+          });
+    
+          if(resp.ok){
+            form.reset();
+            msg.textContent = 'Thanks, you are on the list. Check your inbox.';
+            msg.style.color = '#1f7a48';
+            msg.style.display = 'block';
+          }else{
+            const err = await resp.json().catch(()=>({}));
+            throw new Error(err.error || 'Submission failed, please try again later');
+          }
+        }catch(err){
+          msg.textContent = err.message || 'Something went wrong';
+          msg.style.color = '#b00020';
+          msg.style.display = 'block';
+        }finally{
+          btn.disabled = false; btn.textContent = 'Notify me';
+        }
+      });
+    </script>
+
+      
       <!-- FAQ -->
       <section class="faq" aria-label="Frequently asked questions">
         <h2>FAQ</h2>
