@@ -103,14 +103,27 @@
     .gpsBtn{
       margin:12px auto 0;
       display:inline-block;
-      padding:10px 14px;
-      border-radius:12px;
-      border:1px solid var(--line);
-      background:#eef2ff;
-      color:#1a3cff;
-      font-weight:700;
+      padding:12px 20px;
+      border-radius:999px;
+      border:none;
+      background:linear-gradient(135deg, #4facfe, #00f2fe); /* bright blue gradient */
+      color:#ffffff;
+      font-weight:800;
+      font-size:14px;
+      text-transform:uppercase;
       cursor:pointer;
+      box-shadow:0 4px 12px rgba(79, 172, 254, 0.4); /* soft glow */
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
+    .gpsBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 6px 16px rgba(79, 172, 254, 0.55);
+    }
+    .gpsBtn:active{
+      transform:translateY(0);
+      box-shadow:0 3px 8px rgba(79, 172, 254, 0.3);
+    }
+
     #compatMsg{ margin-top:8px; }
 
     .limitNote{
