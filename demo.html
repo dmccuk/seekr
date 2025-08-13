@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Seekr.run, Gameplay demo</title>
-  <meta name="description" content="Seekr.run gameplay demo, set a game area, rules, and get a code" />
+  <title>Seekr.run — Gameplay demo</title>
+  <meta name="description" content="Seekr.run gameplay demo — set a zone, configure rules, and get a dummy code" />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -29,74 +29,89 @@
       font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       line-height:1.35;
     }
-    .shell{ max-width:1100px; margin:0 auto; padding:24px 16px 48px }
-    header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px }
-    .brand{ font-weight:800; letter-spacing:.4px }
-    .subtle{ color:var(--muted); font-size:13px }
+    .shell{ max-width:1100px; margin:0 auto; padding:24px 16px 56px }
 
-    .grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:18px; }
-    @media (max-width:900px){ .grid{ grid-template-columns:1fr } }
-
-    .card{
-      background:var(--card); border:1px solid var(--line);
-      border-radius:14px; padding:14px; box-shadow:0 8px 22px rgba(20,32,70,.06);
+    /* Header — matches index look */
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px }
+    .brand{
+      font-weight:900; font-size:32px; letter-spacing:.6px; line-height:1.1; color:var(--ink);
+      text-shadow:0 2px 10px rgba(30,76,255,.12), 0 1px 0 #fff;
     }
-    .card h2{ margin:4px 0 10px 0; font-size:18px; font-weight:800 }
-    .row{ display:flex; gap:10px; align-items:center }
-    label{ font-size:13px; color:var(--muted) }
-    input[type="text"], input[type="number"], select{
-      border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-family:inherit;
-      background:#fff; width:100%;
+    .tag{
+      display:inline-block; margin-top:6px; font-size:14px; font-weight:600; color:var(--muted);
+      padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line);
+      box-shadow:0 6px 18px rgba(20,32,70,.06);
     }
-    .switch{
-      display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
-      font-size:13px; color:var(--ink);
-    }
-    .switch input{ display:none }
-    .track{
-      width:46px; height:26px; background:#d7deea; border-radius:999px; position:relative; transition:background .2s;
-    }
-    .dot{
-      position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
-      background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); transition:left .2s;
-    }
-    .switch input:checked + .track{ background:#26a269 }
-    .switch input:checked + .track .dot{ left:23px }
 
     .btn{
       appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff;
       background:linear-gradient(135deg,#4facfe,#00f2fe); cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35);
+      text-decoration:none; display:inline-block;
     }
     .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
-    .btn.copy{ background:linear-gradient(135deg,#35c18f,#2bb07f) }
 
-    .whatsapp-btn{
-      background:#25D366; color:#fff; border-radius:50%; width:46px; height:46px;
-      display:flex; align-items:center; justify-content:center; border:none;
-      cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.15);
+    /* How it works strip */
+    .hiw{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:8px 0 16px 0;
     }
-    .whatsapp-btn:hover{ background:#20b358 }
-    .whatsapp-btn svg{ width:22px; height:22px; display:block; fill:#fff; }
+    .hiw .chip{
+      background:#fff; border:1px solid var(--line); border-radius:14px; padding:10px 12px;
+      display:flex; align-items:center; gap:10px; box-shadow:0 8px 22px rgba(20,32,70,.06);
+      font-weight:600;
+    }
+    .hiw .ico{ width:26px; height:26px; border-radius:8px; background:#eef2ff; display:grid; place-items:center; font-size:14px; color:var(--brand) }
+    @media (max-width:720px){ .hiw{ grid-template-columns:1fr } }
 
+    /* Cards & layout */
+    .grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:18px }
+    @media (max-width:900px){ .grid{ grid-template-columns:1fr } }
+
+    .card{
+      background:var(--card); border:1px solid var(--line);
+      border-radius:14px; padding:14px; box-shadow:0 10px 30px rgba(20,32,70,.06);
+    }
+    .card h2{ margin:4px 0 10px 0; font-size:18px; font-weight:800 }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
     .stack{ display:grid; gap:10px }
     .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
     @media (max-width:520px){ .two{ grid-template-columns:1fr } }
 
+    label{ font-size:13px; color:var(--muted) }
+    input[type="number"], input[type="text"], select{
+      border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-family:inherit; background:#fff; width:100%;
+    }
+
     #map{ width:100%; height:min(64vh,520px); border-radius:12px; overflow:hidden }
 
+    .pill{
+      display:inline-block; background:#eef2fa; border:1px solid var(--line);
+      border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a;
+    }
+
+    /* Special Abilities */
+    .switch{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; font-size:13px; color:var(--ink) }
+    .switch input{ display:none }
+    .track{ width:46px; height:26px; background:#d7deea; border-radius:999px; position:relative; transition:background .2s }
+    .dot{ position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); transition:left .2s }
+    .switch input:checked + .track{ background:#26a269 } .switch input:checked + .track .dot{ left:23px }
+    .fineprint{ font-size:12px; color:var(--muted); }
+
+    /* Code box + WhatsApp */
     .codeBox{
       display:flex; gap:8px; align-items:center; flex-wrap:wrap;
       background:#f7f9ff; border:1px dashed #c7d2ee; padding:10px 12px; border-radius:12px;
     }
     .code{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight:800; letter-spacing:.12em }
 
-    .muted{ color:var(--muted) }
-    .wallet{
-      display:flex; align-items:center; gap:10px; background:#f1f6f2; border:1px solid #d9eadf; padding:10px 12px; border-radius:12px;
+    .whatsapp-btn{
+      background:#25D366; color:#fff; border-radius:50%; width:46px; height:46px;
+      display:flex; align-items:center; justify-content:center; border:none; cursor:pointer;
+      box-shadow:0 4px 8px rgba(0,0,0,0.15);
     }
-    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a }
+    .whatsapp-btn:hover{ background:#20b358 }
+    .whatsapp-btn svg{ width:22px; height:22px; display:block; fill:currentColor }
 
-    .footnote{ margin-top:10px; font-size:12px; color:#var(--muted) }
+    .footnote{ margin-top:8px; font-size:12px; color:var(--muted) }
   </style>
 </head>
 <body>
@@ -104,63 +119,82 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
-        <div class="subtle">Gameplay demo, set an area, configure rules, get a dummy code</div>
+        <div class="tag">Gameplay demo — set a zone, configure rules, get a dummy code</div>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <a href="index.html" class="btn secondary">Back</a>
-      </div>
+      <a href="index.html" class="btn secondary">Back</a>
     </header>
 
+    <!-- How it works strip -->
+    <div class="hiw" aria-label="How it works">
+      <div class="chip"><span class="ico">📍</span>Choose zone</div>
+      <div class="chip"><span class="ico">🕵️</span>Hide or Seek</div>
+      <div class="chip"><span class="ico">🏁</span>Reach destination</div>
+    </div>
+
     <div class="grid">
-      <!-- Map and area selection -->
+      <!-- Map and zone -->
       <section class="card">
         <h2>Pick your playing area</h2>
         <div id="map" role="img" aria-label="Select a game area on map"></div>
+
         <div class="two" style="margin-top:10px;">
           <div class="stack">
-            <label for="radiusKm">Area radius, km</label>
+            <label for="radiusKm">Area radius (km)</label>
             <input id="radiusKm" type="number" min="0.2" max="50" step="0.1" value="0.6" />
           </div>
           <div class="stack">
-            <label class="muted">Center, drag the pin to move</label>
+            <label class="muted">Center (drag the pin)</label>
             <div class="pill" id="centerReadout">lat 0, lng 0</div>
           </div>
         </div>
+
+        <div class="two" style="margin-top:10px;">
+          <div class="stack">
+            <label for="uncertaintyM">Last ping uncertainty (m)</label>
+            <input id="uncertaintyM" type="number" min="10" max="200" step="5" value="50" />
+          </div>
+          <div class="row">
+            <button id="btnExtract" class="btn secondary" type="button" title="Click then tap map to place">
+              Set extraction point
+            </button>
+            <span id="extractReadout" class="pill" style="display:none;"></span>
+            <button id="btnClearExtract" class="btn secondary" type="button" style="display:none;">Clear</button>
+          </div>
+        </div>
+
         <div class="footnote">Your location is used only to center this demo map.</div>
       </section>
 
-      <!-- Rules and dummy code -->
+      <!-- Rules + abilities + code -->
       <section class="card">
         <h2>Rules</h2>
         <div class="two">
           <div class="stack">
-            <label for="gameLen">Game length, minutes</label>
+            <label for="gameLen">Game length (minutes)</label>
             <input id="gameLen" type="number" min="5" max="240" step="5" value="30" />
           </div>
           <div class="stack">
-            <label for="tagDist">Tag distance, meters</label>
+            <label for="tagDist">Tag distance (meters)</label>
             <input id="tagDist" type="number" min="2" max="50" step="1" value="8" />
           </div>
         </div>
 
         <div class="stack" style="margin-top:10px;">
-          <label>Power ups</label>
-          <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay ping</label>
-          <label class="switch"><input id="puReveal" type="checkbox" checked><span class="track"><span class="dot"></span></span>Instant reveal</label>
-          <label class="switch"><input id="puGhost" type="checkbox"><span class="track"><span class="dot"></span></span>Ghost trail, short decoy path</label>
+          <label><strong>Special Abilities</strong> (optional strategy)</label>
+          <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
+          <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
+          <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal (seeker-only)</label>
+          <div class="fineprint">Cooldowns and limits keep every match fair — no pay-to-win.</div>
         </div>
 
         <div class="two" style="margin-top:10px;">
           <div class="stack">
-            <label for="pingMins">Reveal ping, minutes</label>
+            <label for="pingMins">Reveal ping (minutes)</label>
             <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
           </div>
           <div class="stack">
-            <label>Wallet</label>
-            <div class="wallet">
-              <strong>$2.59</strong>
-              <span class="muted">demo balance</span>
-            </div>
+            <label>Wallet (demo)</label>
+            <div class="pill"><strong>$2.59</strong> demo balance</div>
           </div>
         </div>
 
@@ -168,17 +202,18 @@
           <div class="codeBox">
             <div class="muted">Game code</div>
             <div id="code" class="code">AAAAAA</div>
-            <button id="btnCode" class="btn copy" type="button">Generate</button>
-            <!-- WhatsApp share replaces Copy -->
-            <button id="btnShareWA" class="whatsapp-btn" type="button" title="Share on WhatsApp" aria-label="Share code via WhatsApp">
-              <!-- Inline WhatsApp SVG -->
-              <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-                <path d="M19.11 17.36c-.29-.15-1.69-.83-1.95-.92-.26-.1-.45-.15-.64.15-.19.29-.74.92-.9 1.11-.17.19-.33.22-.62.07-.29-.15-1.22-.45-2.32-1.45-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.6.13-.13.29-.33.43-.49.14-.16.19-.26.29-.45.1-.19.05-.37-.02-.52-.07-.15-.64-1.55-.88-2.12-.23-.56-.47-.48-.64-.49l-.55-.01c-.19 0-.49.07-.74.37-.26.29-.97.95-.97 2.31 0 1.36.99 2.67 1.13 2.86.15.19 1.95 2.98 4.73 4.18.66.29 1.18.47 1.58.6.66.21 1.26.18 1.73.11.53-.08 1.69-.69 1.93-1.35.24-.66.24-1.23.17-1.35-.07-.12-.26-.2-.55-.34zM16.02 3.2c-7.1 0-12.85 5.75-12.85 12.85 0 2.27.6 4.49 1.75 6.45L3.2 28.8l6.51-1.68a12.78 12.78 0 0 0 6.31 1.65h.01c7.1 0 12.85-5.75 12.85-12.85s-5.76-12.85-12.86-12.85zm7.53 20.38c-1.01 1.01-2.21 1.8-3.54 2.35-1.37.56-2.82.84-4.31.84h-.01c-2.27 0-4.49-.58-6.45-1.69l-.46-.26-3.86 1 1.03-3.76-.3-.49a10.63 10.63 0 0 1-1.58-5.61c0-5.88 4.78-10.66 10.66-10.66 2.85 0 5.53 1.11 7.54 3.12a10.57 10.57 0 0 1 3.12 7.54c0 1.49-.28 2.94-.84 4.31-.55 1.33-1.34 2.53-2.35 3.54z"/>
+            <button id="btnCode" class="btn" type="button">Generate</button>
+            <!-- WhatsApp share -->
+            <button id="btnShareWA" class="whatsapp-btn" type="button" title="Share on WhatsApp" aria-label="Share on WhatsApp">
+              <svg viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M19.11 17.39c-.3-.15-1.77-.87-2.05-.97-.28-.1-.49-.15-.7.15s-.8.97-.98 1.17c-.18.2-.36.22-.66.07-.3-.15-1.28-.47-2.44-1.5-.9-.8-1.52-1.78-1.7-2.08-.18-.3-.02-.46.13-.61.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.7-1.69-.96-2.3-.25-.6-.51-.52-.7-.53l-.6-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.2 5.08 4.49.71.31 1.27.5 1.7.64.71.23 1.36.2 1.87.12.57-.09 1.77-.72 2.03-1.42.25-.7.25-1.29.18-1.42-.07-.13-.27-.2-.57-.35zM16 3.1c-7.12 0-12.9 5.78-12.9 12.9 0 2.28.6 4.51 1.75 6.47L3 29l6.74-1.77a12.83 12.83 0 0 0 6.26 1.6c7.12 0 12.9-5.78 12.9-12.9S23.12 3.1 16 3.1zm0 23.36c-2.15 0-4.25-.58-6.08-1.68l-.44-.26-4.02 1.06 1.08-3.92-.28-.45a10.77 10.77 0 1 1 9.74 5.25z" fill="currentColor"/>
               </svg>
             </button>
           </div>
+
           <button id="btnStart" class="btn" type="button">Start demo round</button>
           <div id="status" class="footnote"></div>
+          <div class="footnote">Questions? <a href="index.html#faq">Check the FAQ</a>.</div>
         </div>
       </section>
     </div>
@@ -186,12 +221,29 @@
 
   <script>
     // Map setup
-    let map, centerMarker, areaCircle;
+    let map, centerMarker, areaCircle, uncertaintyCircle, extractMarker;
+    let placingExtract = false;
+
     const centerReadout = document.getElementById('centerReadout');
     const radiusInput = document.getElementById('radiusKm');
+    const uncertaintyInput = document.getElementById('uncertaintyM');
+    const btnExtract = document.getElementById('btnExtract');
+    const btnClearExtract = document.getElementById('btnClearExtract');
+    const extractReadout = document.getElementById('extractReadout');
 
-    function setReadout(latlng){
+    function setCenterReadout(latlng){
       centerReadout.textContent = 'lat ' + latlng.lat.toFixed(5) + ', lng ' + latlng.lng.toFixed(5);
+    }
+
+    function drawUncertainty(latlng, meters){
+      if(!uncertaintyCircle){
+        uncertaintyCircle = L.circle(latlng, {
+          radius: meters, color:'#f59f00', weight:2, fillColor:'#f59f00', fillOpacity:0.12, dashArray:'4,6'
+        }).addTo(map);
+      }else{
+        uncertaintyCircle.setLatLng(latlng);
+        uncertaintyCircle.setRadius(meters);
+      }
     }
 
     function initMap(lat=51.505, lng=-0.09){
@@ -202,20 +254,54 @@
 
       centerMarker = L.marker(start, { draggable:true }).addTo(map);
       areaCircle = L.circle(start, { radius: Number(radiusInput.value) * 1000, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:0.12 }).addTo(map);
-      setReadout(start);
+      setCenterReadout(start);
+      drawUncertainty(start, Number(uncertaintyInput.value));
 
       centerMarker.on('drag', e => {
         const p = e.target.getLatLng();
         areaCircle.setLatLng(p);
-        setReadout(p);
+        drawUncertainty(p, Number(uncertaintyInput.value));
+        setCenterReadout(p);
       });
 
-      radiusInput.addEventListener('input', () => {
-        const km = Math.max(0.2, Math.min(50, Number(radiusInput.value) || 0.6));
-        areaCircle.setRadius(km * 1000);
+      map.on('click', e => {
+        if(!placingExtract) return;
+        if(!extractMarker){
+          extractMarker = L.marker(e.latlng, {
+            icon: L.divIcon({className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>'}),
+            interactive:false
+          }).addTo(map);
+        }else{
+          extractMarker.setLatLng(e.latlng);
+        }
+        extractReadout.style.display = 'inline-block';
+        extractReadout.textContent = 'Extraction @ ' + e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
+        btnClearExtract.style.display = 'inline-block';
+        placingExtract = false;
+        btnExtract.textContent = 'Move extraction point';
       });
     }
 
+    radiusInput.addEventListener('input', () => {
+      const km = Math.max(0.2, Math.min(50, Number(radiusInput.value) || 0.6));
+      areaCircle.setRadius(km * 1000);
+    });
+    uncertaintyInput.addEventListener('input', () => {
+      drawUncertainty(centerMarker.getLatLng(), Math.max(10, Math.min(200, Number(uncertaintyInput.value)||50)));
+    });
+
+    btnExtract.addEventListener('click', () => {
+      placingExtract = true;
+      btnExtract.textContent = 'Tap map to set';
+    });
+    btnClearExtract.addEventListener('click', () => {
+      if(extractMarker){ map.removeLayer(extractMarker); extractMarker = null; }
+      extractReadout.style.display = 'none';
+      btnClearExtract.style.display = 'none';
+      btnExtract.textContent = 'Set extraction point';
+    });
+
+    // Try geolocation for centering
     if (location.protocol === 'https:' && 'geolocation' in navigator){
       navigator.geolocation.getCurrentPosition(
         pos => initMap(pos.coords.latitude, pos.coords.longitude),
@@ -241,7 +327,7 @@
 
     btnCode.addEventListener('click', () => {
       codeEl.textContent = makeCode();
-      statusEl.textContent = 'New demo code created, share this with friends';
+      statusEl.textContent = 'New demo code created — share this with friends';
       statusEl.style.color = 'var(--good)';
     });
 
@@ -252,30 +338,28 @@
         game_minutes: Number(document.getElementById('gameLen').value),
         tag_meters: Number(document.getElementById('tagDist').value),
         ping_minutes: Number(document.getElementById('pingMins').value),
+        uncertainty_m: Number(uncertaintyInput.value),
         powerups: {
           delay: document.getElementById('puDelay').checked,
-          reveal: document.getElementById('puReveal').checked,
-          ghost: document.getElementById('puGhost').checked
+          decoy: document.getElementById('puDecoy').checked,
+          reveal: document.getElementById('puReveal').checked
         },
+        extraction: extractMarker ? extractMarker.getLatLng() : null,
         code: codeEl.textContent
       };
       console.log('Demo config', cfg);
-      statusEl.textContent = 'Demo round created, code ' + cfg.code + ', map centered to your chosen area';
+      statusEl.textContent = 'Demo round created — code ' + cfg.code + (cfg.extraction ? ' — extraction set' : '');
       statusEl.style.color = 'var(--good)';
     });
 
-    // WhatsApp share: includes code + URL with ?code= param
-    const shareWABtn = document.getElementById('btnShareWA');
-
-    function shareCodeAndUrl(){
-      const code = codeEl.textContent.trim() || 'AAAAAA';
+    // WhatsApp share: include code + URL param
+    document.getElementById('btnShareWA').addEventListener('click', () => {
+      const code = codeEl.textContent.trim();
       const url = new URL(window.location.href);
-      url.searchParams.set('code', code);
-      const message = encodeURIComponent('Join my Seekr.run demo game! Code: ' + code + ' ' + url.toString());
-      window.open('https://wa.me/?text=' + message, '_blank');
-    }
-
-    shareWABtn.addEventListener('click', shareCodeAndUrl);
+      if(code) url.searchParams.set('code', code);
+      const msg = 'Join my Seekr.run demo — code ' + code + ' ' + url.toString();
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    });
   </script>
 </body>
 </html>
