@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Seekr.run, Coming soon</title>
-  <meta name="description" content="Seekr.run, GPS hide and seek, coming soon" />
+  <title>Seekr.run — The Ultimate Fugitive Challenge</title>
+  <meta name="description" content="Seekr.run — a real-world fugitive challenge. Choose a zone, hide or seek, and reach the extraction point while GPS pings keep the chase alive." />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
 
   <!-- Leaflet for the live map -->
   <link
@@ -41,35 +41,60 @@
       line-height:1.35;
     }
     .shell{ max-width:980px; margin:0 auto; padding:40px 16px 80px }
-    header{ text-align:center; margin-bottom:26px } /* tiny extra spacing */
+    header{ text-align:center; margin-bottom:26px }
     .brand{
       font-weight:900;
-      font-size:32px;              /* was 20px */
+      font-size:32px;
       letter-spacing:.6px;
       line-height:1.1;
       color:var(--ink);
-      text-shadow:0 2px 10px rgba(30,76,255,.12), 0 1px 0 #fff; /* subtle pop */
+      text-shadow:0 2px 10px rgba(30,76,255,.12), 0 1px 0 #fff;
     }
     .tag{
       display:inline-block;
       margin-top:8px;
-      font-size:15px;              /* was 12px */
-      font-weight:600;             /* was 500 */
+      font-size:15px;
+      font-weight:600;
       color:var(--muted);
-      padding:6px 10px;            /* add pill padding */
-      border-radius:999px;         /* pill */
+      padding:6px 10px;
+      border-radius:999px;
       background:linear-gradient(180deg,#fff, #f7f9ff);
       border:1px solid var(--line);
-      box-shadow:0 6px 18px rgba(20,32,70,.06); /* gentle lift */
+      box-shadow:0 6px 18px rgba(20,32,70,.06);
     }
-
 
     .hero{
       text-align:center; background:var(--card); border:1px solid var(--line);
       border-radius:18px; padding:28px 18px; box-shadow:0 10px 30px rgba(20,32,70,.06);
     }
-    h1{ margin:0 0 6px 0; font-size:34px; font-weight:800; letter-spacing:.2px }
+    h1{ margin:0 0 6px 0; font-size:34px; font-weight:900; letter-spacing:.2px }
     .sub{ color:var(--muted); margin-bottom:16px; font-weight:500 }
+
+    /* How it works strip */
+    .how{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+      margin:10px auto 6px; max-width:720px;
+    }
+    .step{
+      display:flex; align-items:center; gap:10px; justify-content:center;
+      background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px;
+      box-shadow:0 6px 18px rgba(20,32,70,.05);
+    }
+    .ico{
+      width:32px; height:32px; border-radius:8px;
+      display:grid; place-items:center; color:#fff; flex:0 0 auto;
+      box-shadow:0 4px 12px rgba(20,32,70,.12);
+    }
+    .ico.zone{ background:#1e4cff }      /* brand blue */
+    .ico.role{ background:#35c18f }      /* accent green */
+    .ico.extract{ background:#0e1220 }   /* ink */
+    .step b{ font-size:13px }
+
+    /* Small FAQ nudge */
+    .faq-nudge{
+      display:inline-block; margin:10px auto 0; padding:8px 12px; border-radius:10px;
+      background:#f2f6ff; border:1px solid #dfe8ff; color:#364d9b; font-size:13px;
+    }
 
     .join{
       display:inline-flex; gap:8px; align-items:center; justify-content:center;
@@ -84,8 +109,8 @@
 
     .coming{
       position:relative;
-      margin:14px auto 6px; /* was 18px auto 6px */
-      top:-4px;             /* raises it up */
+      margin:14px auto 6px;
+      top:-4px;             /* raise by 4px as you liked earlier */
       display:inline-block;
       font-weight:800;
       letter-spacing:.08em;
@@ -100,8 +125,6 @@
       animation:pulse 1.6s ease-in-out infinite;
       vertical-align:middle;
     }
-
-    /* Tooltip for Coming soon */
     .coming::after{
       content:attr(data-tooltip);
       position:absolute;
@@ -132,7 +155,7 @@
       margin-left:8px;
       vertical-align:middle;
       position:relative;
-      top:2px; /* nudges button down */
+      top:2px; /* nudges button down to align with pill */
     }
     .whatsapp-btn:hover{ background:#20b358 }
     .whatsapp-btn svg{ width:18px; height:18px; display:block; fill:currentColor }
@@ -255,6 +278,7 @@
 
     @media (max-width:720px){
       h1{ font-size:28px }
+      .how{ grid-template-columns:1fr }
       .features{ grid-template-columns:1fr }
     }
 
@@ -277,10 +301,37 @@
     </header>
 
     <section class="hero">
-      <h1>The classic chase, now at global scale</h1>
-      <p class="sub">Run, hide, track, reveal, anywhere on earth, right from your phone.</p>
+      <h1>The Ultimate Fugitive Challenge</h1>
+      <p class="sub">A real-world GPS hide-and-seek game played with friends, anywhere on Earth. Choose a zone, split into fugitives and seekers, and race for extraction while periodic pings keep the chase alive.</p>
 
-      <div class="join" aria-disabled="true">
+      <!-- How it works: 3 steps -->
+      <div class="how" aria-label="How it works">
+        <div class="step">
+          <span class="ico zone" aria-hidden="true">
+            <!-- map pin -->
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/></svg>
+          </span>
+          <b>Choose zone</b>
+        </div>
+        <div class="step">
+          <span class="ico role" aria-hidden="true">
+            <!-- two users -->
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 11a4 4 0 1 0-3.2-6.4A5 5 0 0 1 17 9a5 5 0 0 1-1 3ZM7 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.3 0-6 2.2-6 4.9V21h12v-2.1C13 16.2 10.3 14 7 14Zm9 1c-1.6 0-3 .5-4 1.3c1.8.9 3 2.4 3 4.2V21h8v-1.5c0-2.4-2.7-4.5-7-4.5Z"/></svg>
+          </span>
+          <b>Hide or Seek</b>
+        </div>
+        <div class="step">
+          <span class="ico extract" aria-hidden="true">
+            <!-- flag -->
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M6 2v20H4V2h2Zm2 2h10l-2 3l2 3H8V4Z"/></svg>
+          </span>
+          <b>Reach destination</b>
+        </div>
+      </div>
+
+      <span class="faq-nudge">Questions? Check the FAQ below ↓</span>
+
+      <div class="join" aria-disabled="true" style="margin-top:14px;">
         <input type="text" placeholder="Game code" disabled aria-label="Game code" />
         <button disabled>Join game</button>
       </div>
@@ -288,7 +339,6 @@
       <div class="coming" tabindex="0" aria-hidden="false" data-tooltip="Sign up for early access below">Coming soon</div>
       <!-- Small WhatsApp button next to Coming soon -->
       <button id="shareWA" class="whatsapp-btn" title="Share on WhatsApp" aria-label="Share on WhatsApp">
-        <!-- inline WhatsApp icon -->
         <svg viewBox="0 0 32 32" aria-hidden="true">
           <path d="M19.11 17.39c-.3-.15-1.77-.87-2.05-.97-.28-.1-.49-.15-.7.15s-.8.97-.98 1.17c-.18.2-.36.22-.66.07-.3-.15-1.28-.47-2.44-1.5-.9-.8-1.52-1.78-1.7-2.08-.18-.3-.02-.46.13-.61.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.7-1.69-.96-2.3-.25-.6-.51-.52-.7-.53l-.6-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.2 5.08 4.49.71.31 1.27.5 1.7.64.71.23 1.36.2 1.87.12.57-.09 1.77-.72 2.03-1.42.25-.7.25-1.29.18-1.42-.07-.13-.27-.2-.57-.35zM16 3.1c-7.12 0-12.9 5.78-12.9 12.9 0 2.28.6 4.51 1.75 6.47L3 29l6.74-1.77a12.83 12.83 0 0 0 6.26 1.6c7.12 0 12.9-5.78 12.9-12.9S23.12 3.1 16 3.1zm0 23.36c-2.15 0-4.25-.58-6.08-1.68l-.44-.26-4.02 1.06 1.08-3.92-.28-.45a10.77 10.77 0 1 1 9.74 5.25z" fill="currentColor"/>
         </svg>
@@ -324,9 +374,9 @@
         </div>
 
         <div class="card" tabindex="0"
-             data-tooltip="Spend a small balance to delay your next ping, or trigger an instant reveal. Cooldowns keep rounds fair.">
-          <b>Power ups</b>
-          <small>Delay ping and instant reveal, funded from a small balance</small>
+             data-tooltip="Optional game twists keep strategy fresh without pay-to-win. Use a decoy trail or delay your next reveal—both with cooldowns to stay fair.">
+          <b>Game twists</b>
+          <small>Decoy trail and delayed reveal, with fairness cooldowns</small>
         </div>
       </div>
 
@@ -367,12 +417,12 @@
 
         <details>
           <summary>How do I set up a game?<span class="chev"></span></summary>
-          <div class="answer">Pick a game area, share a code with friends, then choose who is seeker and who is hider. Everything runs in the browser.</div>
+          <div class="answer">Choose a game zone, share a code, pick roles, and start the countdown. Everything runs in the browser.</div>
         </details>
 
         <details>
           <summary>Is it free to play?<span class="chev"></span></summary>
-          <div class="answer">Yes. Games are free. Optional power ups cost a small amount if you want extra strategy.</div>
+          <div class="answer">Yes. Core gameplay is free. Optional game twists are balanced with cooldowns—no pay-to-win.</div>
         </details>
 
         <details>
@@ -381,49 +431,39 @@
         </details>
 
         <details>
-          <summary>How does the seeker find hiders?<span class="chev"></span></summary>
-          <div class="answer">Hider locations appear on the map at set intervals. The seeker uses those pings to close in.</div>
+          <summary>How do seekers find fugitives?<span class="chev"></span></summary>
+          <div class="answer">Fugitives reveal as **blurred circles** (e.g., 50m radius) on timed pings to protect privacy and keep the chase tense.</div>
         </details>
 
         <details>
-          <summary>How do I win?<span class="chev"></span></summary>
-          <div class="answer">Hiders win by staying untagged until the end. The seeker wins by tagging every hider before time is up.</div>
+          <summary>How do fugitives win?<span class="chev"></span></summary>
+          <div class="answer">Reach the extraction point before the timer ends, without getting tagged within the set tag radius.</div>
         </details>
 
         <details>
           <summary>How is tagging detected?<span class="chev"></span></summary>
-          <div class="answer">When players are within a set GPS distance, for example 5 to 10 meters, the game registers a tag automatically.</div>
+          <div class="answer">When players are within a set GPS distance (for example 5–10 meters), the game registers a tag automatically.</div>
         </details>
 
         <details>
           <summary>How accurate is GPS?<span class="chev"></span></summary>
-          <div class="answer">Outdoors, accuracy is usually within a few meters. In dense areas it may drift a bit. Open spaces work best.</div>
+          <div class="answer">Outdoors, accuracy is usually within a few meters. In dense areas it may drift. Open spaces work best.</div>
         </details>
 
         <details>
-          <summary>What are power ups exactly?<span class="chev"></span></summary>
-          <div class="answer">Delay Ping lets you pause your next reveal. Instant Reveal shows hiders right now. Limits and cooldowns keep it fair.</div>
+          <summary>What are the game twists?<span class="chev"></span></summary>
+          <div class="answer">A **Decoy Trail** briefly shows a fake breadcrumb path; **Delay Reveal** postpones your next ping. Both have cooldowns to stay fair.</div>
         </details>
 
         <details>
           <summary>Can we set our own rules?<span class="chev"></span></summary>
-          <div class="answer">Yes. The host can set duration, reveal timing, tag distance, and which power ups are allowed.</div>
+          <div class="answer">Yes. Hosts can set duration, ping interval, tag distance, extraction points, and which twists are allowed.</div>
         </details>
 
         <details>
           <summary>Is it safe?<span class="chev"></span></summary>
-          <div class="answer">Play in safe areas, respect property and local laws, and keep an eye on your surroundings. Hider reveals include a small privacy offset.</div>
+          <div class="answer">Play in safe areas, respect property and local laws, and keep an eye on your surroundings. Pings are privacy-blurred.</div>
         </details>
-
-        <!-- Optional, out of bounds question
-        <details>
-          <summary>What happens if I go out of bounds?<span class="chev"></span></summary>
-          <div class="answer">
-            If you leave the set game area, you will get a warning and a short grace period to return.
-            If you stay outside the boundary past that time, you may be disqualified for that round.
-          </div>
-        </details>
-        -->
       </section>
     </section>
   </div>
@@ -433,7 +473,7 @@
     // Inline success and error message handler
     const form = document.getElementById('interestForm');
     const msg = document.getElementById('formMsg');
-    const registerBtn = document.getElementById('btnRegister'); // renamed to avoid clash
+    const registerBtn = document.getElementById('btnRegister');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -473,7 +513,7 @@
     });
   </script>
 
-  <!-- GPS compatibility script -->
+  <!-- GPS compatibility + map demo script -->
   <script>
     // Tooltips on tap for mobile
     document.querySelectorAll('.card').forEach(el => {
@@ -485,8 +525,7 @@
       el.addEventListener('blur', () => el.classList.remove('show-tip'));
     });
 
-    // Compatibility test, GPS to Live Map, fallback to MP4
-    const gpsBtn = document.getElementById('gpsBtn'); // distinct name
+    const gpsBtn = document.getElementById('gpsBtn');
     const compatMsg = document.getElementById('compatMsg');
     const limitNote = document.getElementById('limitNote');
     const videoEl = document.getElementById('demoVideo');
@@ -554,7 +593,7 @@
   <!-- WhatsApp share script -->
   <script>
     document.getElementById('shareWA').addEventListener('click', () => {
-      const text = "Check out Seekr.run, GPS hide and seek at global scale! " + window.location.href;
+      const text = "Check out Seekr.run — The Ultimate Fugitive Challenge. " + window.location.href;
       const url = "https://wa.me/?text=" + encodeURIComponent(text);
       window.open(url, "_blank");
     });
