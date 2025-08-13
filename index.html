@@ -4,19 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Seekr.run - The Ultimate Fugitive Challenge</title>
-  <meta name="description" content="Seekr.run is a real-world GPS hide and seek for adults. Choose a zone, pick fugitives and seekers, and race to extraction while GPS pings keep the chase alive." />
+  <meta name="description" content="Seekr.run is a real-world GPS hide and seek for adults. Set a zone, fugitives run while seekers get timed pings. Extraction is auto placed and stays secret until 20 percent of the timer remains. Reach within 10 meters to win." />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
   <link rel="canonical" href="https://seekr.run/" />
 
   <!-- Social cards -->
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Seekr.run - The Ultimate Fugitive Challenge" />
-  <meta property="og:description" content="Real-world GPS hide and seek. Set a zone, hunt or hide, reach extraction, all with privacy friendly pings." />
+  <meta property="og:description" content="GPS hide and seek with secret extraction. Set the zone, hide or seek, reach extraction. Pings are privacy friendly and configurable." />
   <meta property="og:image" content="https://seekr.run/assets/social.jpg" />
   <meta property="og:url" content="https://seekr.run/" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Seekr.run - The Ultimate Fugitive Challenge" />
-  <meta name="twitter:description" content="Set the zone, hunt or hide, reach extraction. Real-world GPS hide and seek." />
+  <meta name="twitter:description" content="Set the zone, hide or seek, reach extraction. Extraction reveals at 20 percent time remaining." />
   <meta name="twitter:image" content="https://seekr.run/assets/social.jpg" />
 
   <!-- Fonts -->
@@ -48,6 +48,7 @@
     }
     *{ box-sizing:border-box }
     html, body{ height:100% }
+    html{ scroll-behavior:smooth }
     body{
       margin:0; background:var(--bg); color:var(--ink);
       font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -99,6 +100,7 @@
     .faq-nudge{
       display:inline-block; margin:10px auto 0; padding:8px 12px; border-radius:10px;
       background:#f2f6ff; border:1px solid #dfe8ff; color:#364d9b; font-size:13px;
+      text-decoration:none;
     }
 
     .join{
@@ -179,6 +181,9 @@
     }
 
     .features{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:26px; }
+    @media (min-width:721px){
+      .features{ grid-template-columns:1fr 1fr }
+    }
     .card{
       position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px;
       transition: box-shadow .2s ease, transform .2s ease; cursor:default; outline:none;
@@ -244,7 +249,7 @@
 
     <section class="hero">
       <h1>The Ultimate Fugitive Challenge</h1>
-      <p class="sub">A real-world GPS hide and seek played with friends, anywhere on Earth. Set the zone, split into fugitives and seekers, reach extraction before the timer while periodic pings keep the chase alive.</p>
+      <p class="sub">Set a zone, split into fugitives and seekers, reach extraction before time runs out. Extraction is auto placed and hidden, it reveals when 20 percent remains. Fugitives win by getting within 10 meters.</p>
 
       <!-- How it works: 3 steps -->
       <div class="how" aria-label="How it works">
@@ -268,7 +273,7 @@
         </div>
       </div>
 
-      <span class="faq-nudge">Questions? Check the FAQ below</span>
+      <a href="#faq" class="faq-nudge" id="faqNudge">Questions? Check the FAQ below</a>
 
       <div class="join" aria-disabled="true" style="margin-top:14px;">
         <input type="text" placeholder="Game code" disabled aria-label="Game code" />
@@ -312,9 +317,21 @@
         </div>
 
         <div class="card" role="listitem" tabindex="0"
-             data-tooltip="Optional game twists keep strategy fresh without pay to win. Use a decoy trail or delay your next reveal, both with cooldowns to stay fair.">
-          <b>Game twists</b>
-          <small>Decoy trail and delayed reveal, with fairness cooldowns</small>
+             data-tooltip="Extraction is auto placed inside the zone and hidden. It reveals when 20 percent of the timer remains. Fugitives win by reaching within 10 meters.">
+          <b>Secret extraction</b>
+          <small>Auto placed and hidden, reveals late for fair play</small>
+        </div>
+
+        <div class="card" role="listitem" tabindex="0"
+             data-tooltip="Seekers receive privacy blurred pings by default every 5 minutes. Hosts can change the interval on the setup page.">
+          <b>Timed pings</b>
+          <small>Default 5 minute seeker pings, adjustable in setup</small>
+        </div>
+
+        <div class="card" role="listitem" tabindex="0"
+             data-tooltip="Start with 500 Tokens. Spend 25 Tokens to drop a decoy ping or use other twists. Cooldowns keep matches fair.">
+          <b>Tokens for twists</b>
+          <small>500 Tokens to start, 25 per twist use</small>
         </div>
       </div>
 
@@ -351,7 +368,7 @@
       </section>
 
       <!-- FAQ -->
-      <section class="faq" aria-label="Frequently asked questions">
+      <section id="faq" class="faq" aria-label="Frequently asked questions">
         <h2>FAQ</h2>
 
         <details>
@@ -361,7 +378,7 @@
 
         <details>
           <summary>Is it free to play?<span class="chev"></span></summary>
-          <div class="answer">Yes. Core gameplay is free. Optional game twists are balanced with cooldowns, no pay to win.</div>
+          <div class="answer">Yes. Core gameplay is free. Optional twists are balanced with cooldowns, no pay to win.</div>
         </details>
 
         <details>
@@ -370,13 +387,33 @@
         </details>
 
         <details>
+          <summary>How is the extraction point set?<span class="chev"></span></summary>
+          <div class="answer">The system auto places extraction inside the zone and keeps it secret. At 20 percent time remaining, everyone is told that extraction is now revealed. The fugitive sees the location, the seeker does not. The fugitive wins by getting within 10 meters.</div>
+        </details>
+
+        <details>
+          <summary>Can fugitives see where seekers are?<span class="chev"></span></summary>
+          <div class="answer">No. Hiders do not see seeker locations. They must keep moving and use strategy.</div>
+        </details>
+
+        <details>
+          <summary>Do seekers see the extraction location?<span class="chev"></span></summary>
+          <div class="answer">Seekers get a notification that extraction has been disclosed, but they do not see the location.</div>
+        </details>
+
+        <details>
           <summary>How do seekers find fugitives?<span class="chev"></span></summary>
-          <div class="answer">Fugitives reveal as <strong>blurred circles</strong> for example 50 meter radius, on timed pings. This protects privacy and keeps the chase tense.</div>
+          <div class="answer">Fugitives reveal as <strong>blurred circles</strong> for example 50 meter radius, on timed pings that protect privacy.</div>
+        </details>
+
+        <details>
+          <summary>What is the default ping interval?<span class="chev"></span></summary>
+          <div class="answer">Seekers receive pings every 5 minutes by default. Hosts can change the interval on the setup page to be more often or less often.</div>
         </details>
 
         <details>
           <summary>How do fugitives win?<span class="chev"></span></summary>
-          <div class="answer">Reach the extraction point before the timer ends, without getting tagged within the set tag radius.</div>
+          <div class="answer">Reach the extraction point before the timer ends, and get within the tag distance and the 10 meter extraction range.</div>
         </details>
 
         <details>
@@ -385,18 +422,8 @@
         </details>
 
         <details>
-          <summary>How accurate is GPS?<span class="chev"></span></summary>
-          <div class="answer">Outdoors, accuracy is usually within a few meters. In dense areas it may drift. Open spaces work best.</div>
-        </details>
-
-        <details>
-          <summary>What are the game twists?<span class="chev"></span></summary>
-          <div class="answer"><strong>Decoy Trail</strong> briefly shows a fake breadcrumb path. <strong>Delay Reveal</strong> postpones your next ping. Both have cooldowns to stay fair.</div>
-        </details>
-
-        <details>
-          <summary>Can we set our own rules?<span class="chev"></span></summary>
-          <div class="answer">Yes. Hosts can set duration, ping interval, tag distance, extraction points, and which twists are allowed.</div>
+          <summary>What are Tokens?<span class="chev"></span></summary>
+          <div class="answer">You start with <strong>500 Tokens</strong>. Spend <strong>25 Tokens</strong> to use a twist, for example a decoy ping that can mislead seekers. Cooldowns keep matches fair.</div>
         </details>
 
         <details>
@@ -431,6 +458,16 @@
     }
     handleMotion();
     mediaQuery.addEventListener ? mediaQuery.addEventListener('change', handleMotion) : mediaQuery.addListener(handleMotion);
+
+    // FAQ nudge, scroll and focus the FAQ heading
+    const faqLink = document.getElementById('faqNudge');
+    const faqSection = document.getElementById('faq');
+    faqLink.addEventListener('click', () => {
+      setTimeout(() => {
+        const h2 = faqSection.querySelector('h2');
+        if(h2){ h2.setAttribute('tabindex','-1'); h2.focus({preventScroll:true}); }
+      }, 400);
+    });
   </script>
 
   <script>
