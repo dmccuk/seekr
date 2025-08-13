@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Seekr.run - Gameplay demo</title>
-  <meta name="description" content="Seekr.run gameplay demo, set a zone, configure rules, and get a dummy code" />
+  <meta name="description" content="Seekr.run gameplay demo, set a zone, configure rules, get a dummy code, and see how secret extraction reveals late." />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
 
   <!-- Fonts -->
@@ -131,6 +131,11 @@
     .overlay .steps div{ display:flex; gap:10px; align-items:center; background:#f8faff; border:1px solid var(--line); border-radius:12px; padding:10px }
     .overlay .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
 
+    /* Timer */
+    #timerWrap{ display:none }
+    #progress{ height:6px; border-radius:6px; background:#eef2fa; border:1px solid var(--line); margin-top:6px; }
+    #progressFill{ height:100%; width:0%; background:#1e4cff; border-radius:6px; }
+
     /* Reduced motion */
     @media (prefers-reduced-motion: reduce){
       .btn{ transition:none }
@@ -145,7 +150,7 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
-        <div class="tag">Gameplay demo, set a zone, configure rules, get a dummy code</div>
+        <div class="tag">Gameplay demo, secret extraction reveals late</div>
       </div>
       <a href="index.html" class="btn secondary">Back</a>
     </header>
@@ -179,10 +184,9 @@
             <label for="uncertaintyM">Last ping uncertainty (m)</label>
             <input id="uncertaintyM" type="number" min="10" max="200" step="5" value="50" />
           </div>
-          <div class="row">
-            <button id="btnExtract" class="btn ghost" type="button" title="Click then tap map to place">Set extraction point</button>
-            <span id="extractReadout" class="pill" style="display:none;"></span>
-            <button id="btnClearExtract" class="btn ghost" type="button" style="display:none;">Clear</button>
+          <div class="stack">
+            <label class="muted">Extraction status</label>
+            <span id="extractReadout" class="pill" style="display:none;">Extraction location set, reveals at 20 percent remaining</span>
           </div>
         </div>
 
@@ -216,17 +220,17 @@
           <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
           <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
           <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal, seeker only</label>
-          <div class="fineprint">Cooldowns and limits keep every match fair, no pay to win.</div>
+          <div class="fineprint">Twists cost 25 Tokens per use, cooldowns keep matches fair.</div>
         </div>
 
         <div class="two" style="margin-top:10px;">
           <div class="stack">
-            <label for="pingMins">Reveal ping (minutes)</label>
+            <label for="pingMins">Seeker ping interval, minutes</label>
             <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
           </div>
           <div class="stack">
-            <label>Wallet, demo</label>
-            <div class="pill"><strong>$2.59</strong> demo balance</div>
+            <label>Tokens</label>
+            <div class="pill"><strong>500</strong> Tokens</div>
           </div>
         </div>
 
@@ -244,6 +248,13 @@
 
           <button id="btnStart" class="btn" type="button">Start demo round</button>
           <div id="status" class="footnote" aria-live="polite"></div>
+
+          <!-- Timer -->
+          <div id="timerWrap" class="footnote">
+            <div id="timeLeft" class="pill">Time remaining 00:00</div>
+            <div id="progress"><div id="progressFill"></div></div>
+          </div>
+
           <div class="footnote">Questions? <a href="index.html#faq">Check the FAQ</a>.</div>
         </div>
       </section>
@@ -257,7 +268,7 @@
       <p>Three steps and you are ready.</p>
       <div class="steps">
         <div>1, Drag the pin to set the center and adjust the radius.</div>
-        <div>2, Click Set extraction point then tap the map.</div>
+        <div>2, Extraction is auto placed and hidden, it reveals at 20 percent remaining.</div>
         <div>3, Pick rules, generate a code, share with friends.</div>
       </div>
       <div class="actions">
@@ -270,15 +281,22 @@
   <script>
     // Map setup
     let map, centerMarker, areaCircle, uncertaintyCircle, extractMarker;
-    let placingExtract = false;
 
     const centerReadout = document.getElementById('centerReadout');
     const radiusInput = document.getElementById('radiusKm');
     const uncertaintyInput = document.getElementById('uncertaintyM');
-    const btnExtract = document.getElementById('btnExtract');
-    const btnClearExtract = document.getElementById('btnClearExtract');
     const extractReadout = document.getElementById('extractReadout');
     const statusEl = document.getElementById('status');
+    const timerWrap = document.getElementById('timerWrap');
+    const timeLeft = document.getElementById('timeLeft');
+    const progressFill = document.getElementById('progressFill');
+
+    // Secret extraction state
+    let secretPoint = null;
+    let gameStartMs = 0;
+    let gameEndMs = 0;
+    let revealAtMs = 0;
+    let tickId = null;
 
     function setCenterReadout(latlng){
       centerReadout.textContent = 'lat ' + latlng.lat.toFixed(5) + ', lng ' + latlng.lng.toFixed(5);
@@ -312,23 +330,6 @@
         drawUncertainty(p, Number(uncertaintyInput.value));
         setCenterReadout(p);
       });
-
-      map.on('click', e => {
-        if(!placingExtract) return;
-        if(!extractMarker){
-          extractMarker = L.marker(e.latlng, {
-            icon: L.divIcon({className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>'}),
-            interactive:false
-          }).addTo(map);
-        }else{
-          extractMarker.setLatLng(e.latlng);
-        }
-        extractReadout.style.display = 'inline-block';
-        extractReadout.textContent = 'Extraction @ ' + e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
-        btnClearExtract.style.display = 'inline-block';
-        placingExtract = false;
-        btnExtract.textContent = 'Move extraction point';
-      });
     }
 
     radiusInput.addEventListener('input', () => {
@@ -337,21 +338,6 @@
     });
     uncertaintyInput.addEventListener('input', () => {
       drawUncertainty(centerMarker.getLatLng(), clamp(Number(uncertaintyInput.value), 10, 200, 50));
-    });
-
-    btnExtract.addEventListener('click', () => {
-      placingExtract = true;
-      btnExtract.textContent = 'Tap map to set';
-      statusEl.textContent = 'Tap the map to place the extraction point';
-      statusEl.style.color = '#364d9b';
-    });
-    btnClearExtract.addEventListener('click', () => {
-      if(extractMarker){ map.removeLayer(extractMarker); extractMarker = null; }
-      extractReadout.style.display = 'none';
-      btnClearExtract.style.display = 'none';
-      btnExtract.textContent = 'Set extraction point';
-      statusEl.textContent = 'Extraction cleared';
-      statusEl.style.color = 'var(--bad)';
     });
 
     // Try geolocation for centering
@@ -369,6 +355,49 @@
       n = Number.isFinite(n) ? n : fallback;
       return Math.max(min, Math.min(max, n));
     }
+
+    // Geo helpers
+    function destinationPoint(latlng, distanceMeters, bearingRad){
+      const R = 6371000;
+      const phi1 = latlng.lat * Math.PI / 180;
+      const lam1 = latlng.lng * Math.PI / 180;
+      const d = distanceMeters / R;
+      const th = bearingRad;
+
+      const sinPhi1 = Math.sin(phi1), cosPhi1 = Math.cos(phi1);
+      const sinD = Math.sin(d), cosD = Math.cos(d);
+      const sinTh = Math.sin(th), cosTh = Math.cos(th);
+
+      const sinPhi2 = sinPhi1 * cosD + cosPhi1 * sinD * cosTh;
+      const phi2 = Math.asin(sinPhi2);
+      const y = sinTh * sinD * cosPhi1;
+      const x = cosD - sinPhi1 * sinPhi2;
+      const lam2 = lam1 + Math.atan2(y, x);
+
+      return L.latLng(phi2 * 180 / Math.PI, lam2 * 180 / Math.PI);
+    }
+    function randomPointInCircle(center, radiusMeters){
+      const u = Math.random();
+      const v = Math.random();
+      const r = radiusMeters * Math.sqrt(u);
+      const th = 2 * Math.PI * v;
+      return destinationPoint(center, r, th);
+    }
+    function fmtTime(ms){
+      const s = Math.max(0, Math.floor(ms / 1000));
+      const m = Math.floor(s / 60);
+      const ss = String(s % 60).padStart(2, '0');
+      return m + ':' + ss;
+    }
+    function addExtractionMarker(latlng){
+      extractMarker = L.marker(latlng, {
+        icon: L.divIcon({ className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>' }),
+        interactive:false
+      }).addTo(map);
+      extractReadout.style.display = 'inline-block';
+      extractReadout.textContent = 'Extraction @ ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+    }
+
   </script>
 
   <script>
@@ -389,19 +418,22 @@
     document.getElementById('presetHunt').addEventListener('click', () => {
       gameLen.value = 25; tagDist.value = 8; pingMins.value = 3;
       puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
-      radiusKm.value = 0.8; uncertaintyM.value = 50; radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
+      radiusInput.value = 0.8; uncertaintyInput.value = 50;
+      radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
       nudge('Fugitive Hunt preset applied');
     });
     document.getElementById('presetTeam').addEventListener('click', () => {
       gameLen.value = 40; tagDist.value = 10; pingMins.value = 4;
       puDelay.checked = true; puDecoy.checked = false; puReveal.checked = true;
-      radiusKm.value = 1.2; uncertaintyM.value = 60; radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
+      radiusInput.value = 1.2; uncertaintyInput.value = 60;
+      radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
       nudge('Team Battle preset applied');
     });
     document.getElementById('presetLarge').addEventListener('click', () => {
       gameLen.value = 60; tagDist.value = 12; pingMins.value = 5;
       puDelay.checked = true; puDecoy.checked = true; puReveal.checked = false;
-      radiusKm.value = 2.0; uncertaintyM.value = 75; radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
+      radiusInput.value = 2.0; uncertaintyInput.value = 75;
+      radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
       nudge('Large Zone preset applied');
     });
 
@@ -424,6 +456,7 @@
       updateUrlParam('code', codeEl.textContent.trim());
     });
 
+    // Start demo, auto place secret extraction and reveal at 20 percent remaining
     btnStart.addEventListener('click', () => {
       const cfg = {
         center: centerMarker.getLatLng(),
@@ -437,15 +470,56 @@
           decoy: puDecoy.checked,
           reveal: puReveal.checked
         },
-        extraction: extractMarker ? extractMarker.getLatLng() : null,
-        code: codeEl.textContent.trim()
+        code: codeEl.textContent.trim(),
+        secret_extraction: true,
+        reveal_pct: 20
       };
+
+      // Timers
+      gameStartMs = Date.now();
+      const durMs = Math.max(1, cfg.game_minutes) * 60 * 1000;
+      gameEndMs = gameStartMs + durMs;
+      revealAtMs = gameStartMs + durMs * (1 - cfg.reveal_pct / 100);
+
+      // Auto place secret extraction
+      secretPoint = randomPointInCircle(cfg.center, cfg.radius_km * 1000);
+      if(extractMarker){ map.removeLayer(extractMarker); extractMarker = null; }
+      extractReadout.style.display = 'inline-block';
+      extractReadout.textContent = 'Extraction location set, reveals at 20 percent remaining';
+
+      // Start ticking
+      if(tickId){ clearInterval(tickId); }
+      timerWrap.style.display = 'block';
+      tick();
+      tickId = setInterval(tick, 1000);
+
       console.log('Demo config', cfg);
-      statusEl.textContent = 'Demo round created, code ' + cfg.code + (cfg.extraction ? ', extraction set' : '');
+      statusEl.textContent = 'Demo round started, code ' + cfg.code + ', seekers get pings every ' + cfg.ping_minutes + ' minutes';
       statusEl.style.color = 'var(--good)';
+
+      function tick(){
+        const now = Date.now();
+        const remaining = Math.max(0, gameEndMs - now);
+        timeLeft.textContent = 'Time remaining ' + fmtTime(remaining);
+        const progress = 100 * (1 - remaining / (gameEndMs - gameStartMs));
+        progressFill.style.width = progress.toFixed(1) + '%';
+
+        if(!extractMarker && now >= revealAtMs && secretPoint){
+          addExtractionMarker(secretPoint);
+          statusEl.textContent = 'Extraction revealed for fugitives, seekers are notified but do not see the location';
+          statusEl.style.color = '#364d9b';
+        }
+
+        if(remaining === 0){
+          clearInterval(tickId);
+          tickId = null;
+          statusEl.textContent = 'Time up';
+          statusEl.style.color = 'var(--bad)';
+        }
+      }
     });
 
-    // WhatsApp share: include code and URL param snapshot
+    // WhatsApp share, include code and key settings
     btnShareWA.addEventListener('click', () => {
       const code = codeEl.textContent.trim() || makeCode();
       if(!codeEl.textContent.trim()){ codeEl.textContent = code; }
