@@ -32,7 +32,6 @@
     }
     .shell{ max-width:1100px; margin:0 auto; padding:24px 16px 56px }
 
-    /* Header */
     header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px }
     .brand{
       font-weight:900; font-size:32px; letter-spacing:.6px; line-height:1.1; color:var(--ink);
@@ -53,7 +52,6 @@
     .btn.ghost{ background:#fff; color:#0e1220; border:1px solid var(--line); box-shadow:none }
     .btn:focus-visible{ outline:3px solid var(--focus); outline-offset:2px }
 
-    /* How it works strip */
     .hiw{
       display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:8px 0 16px 0;
     }
@@ -65,7 +63,6 @@
     .hiw .ico{ width:26px; height:26px; border-radius:8px; background:#eef2ff; display:grid; place-items:center; font-size:14px; color:var(--brand) }
     @media (max-width:720px){ .hiw{ grid-template-columns:1fr } }
 
-    /* Cards and layout */
     .grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:18px }
     @media (max-width:900px){ .grid{ grid-template-columns:1fr } }
 
@@ -91,7 +88,6 @@
       border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a;
     }
 
-    /* Special Abilities */
     .switch{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; font-size:13px; color:var(--ink) }
     .switch input{ display:none }
     .track{ width:46px; height:26px; background:#d7deea; border-radius:999px; position:relative; transition:background .2s }
@@ -99,7 +95,6 @@
     .switch input:checked + .track{ background:#26a269 } .switch input:checked + .track .dot{ left:23px }
     .fineprint{ font-size:12px; color:var(--muted); }
 
-    /* Code box and WhatsApp */
     .codeBox{
       display:flex; gap:8px; align-items:center; flex-wrap:wrap;
       background:#f7f9ff; border:1px dashed #c7d2ee; padding:10px 12px; border-radius:12px;
@@ -116,7 +111,6 @@
 
     .footnote{ margin-top:8px; font-size:12px; color:var(--muted) }
 
-    /* Onboarding overlay */
     .overlay{
       position:fixed; inset:0; background:rgba(14,18,32,.6);
       display:none; align-items:center; justify-content:center; padding:16px; z-index:9999;
@@ -131,24 +125,20 @@
     .overlay .steps div{ display:flex; gap:10px; align-items:center; background:#f8faff; border:1px solid var(--line); border-radius:12px; padding:10px }
     .overlay .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
 
-    /* Timer */
     #timerWrap{ display:none }
     #progress{ height:6px; border-radius:6px; background:#eef2fa; border:1px solid var(--line); margin-top:6px; }
     #progressFill{ height:100%; width:0%; background:#1e4cff; border-radius:6px; }
 
-    /* Toast */
     .toast{
       position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
       background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px;
       box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px;
     }
 
-    /* Reduced motion */
     @media (prefers-reduced-motion: reduce){
       .btn{ transition:none }
     }
 
-    /* Focus ring helper */
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
   </style>
 </head>
@@ -162,7 +152,6 @@
       <a href="index.html" class="btn secondary">Back</a>
     </header>
 
-    <!-- How it works strip -->
     <div class="hiw" aria-label="How it works">
       <div class="chip"><span class="ico">📍</span>Set the zone</div>
       <div class="chip"><span class="ico">🕵️</span>Hide or seek</div>
@@ -170,7 +159,6 @@
     </div>
 
     <div class="grid">
-      <!-- Map and zone -->
       <section class="card">
         <h2>Pick your playing area</h2>
         <div id="map" role="img" aria-label="Select a game area on map"></div>
@@ -200,11 +188,9 @@
         <div class="footnote">Your location is used only to center this demo map.</div>
       </section>
 
-      <!-- Rules and code -->
       <section class="card">
         <h2>Rules</h2>
 
-        <!-- Quick presets -->
         <div class="row" style="margin-bottom:8px;">
           <button class="btn ghost" id="presetHunt" type="button" title="Many seekers vs 1 or 2 fugitives">Preset, Fugitive Hunt</button>
           <button class="btn ghost" id="presetTeam" type="button" title="Team vs team across a larger zone">Preset, Team Battle</button>
@@ -223,11 +209,11 @@
         </div>
 
         <div class="stack" style="margin-top:10px;">
-          <label><strong>Special Abilities</strong> (optional strategy)</label>
+          <label><strong>Actions</strong> (optional strategy)</label>
           <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
           <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
           <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal, seeker only</label>
-          <div class="fineprint">Each twist costs 25 Tokens to use.</div>
+          <div class="fineprint">Each action costs 25 Tokens to use.</div>
         </div>
 
         <div class="two" style="margin-top:10px%;">
@@ -256,7 +242,6 @@
           <button id="btnStart" class="btn" type="button">Start demo round</button>
           <div id="status" class="footnote" aria-live="polite"></div>
 
-          <!-- Timer -->
           <div id="timerWrap" class="footnote">
             <div id="timeLeft" class="pill">Time remaining 00:00</div>
             <div id="progress"><div id="progressFill"></div></div>
@@ -268,7 +253,6 @@
     </div>
   </div>
 
-  <!-- Onboarding overlay -->
   <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="obTitle" aria-hidden="true">
     <div class="sheet">
       <h3 id="obTitle">Quick setup</h3>
@@ -285,7 +269,6 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -359,7 +342,6 @@
       drawUncertainty(centerMarker.getLatLng(), clamp(Number(uncertaintyInput.value), 10, 200, 50));
     });
 
-    // Try geolocation for centering
     if (location.protocol === 'https:' && 'geolocation' in navigator){
       navigator.geolocation.getCurrentPosition(
         pos => initMap(pos.coords.latitude, pos.coords.longitude),
@@ -445,7 +427,6 @@
     const puDecoy = document.getElementById('puDecoy');
     const puReveal = document.getElementById('puReveal');
 
-    // Presets
     document.getElementById('presetHunt').addEventListener('click', () => {
       gameLen.value = 25; tagDist.value = 8; pingMins.value = 3;
       puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
@@ -496,7 +477,7 @@
         tag_meters: Number(tagDist.value),
         ping_minutes: Number(pingMins.value),
         uncertainty_m: Number(uncertaintyInput.value),
-        abilities: {
+        actions: {
           delay: puDelay.checked,
           decoy: puDecoy.checked,
           reveal: puReveal.checked
@@ -506,7 +487,6 @@
         reveal_pct: 20
       };
 
-      // If the host did not press Set extraction point, auto place now
       if(!secretPoint){
         const radiusMeters = cfg.radius_km * 1000;
         secretPoint = randomPointInCircle(cfg.center, radiusMeters);
@@ -515,13 +495,11 @@
         showToast('Extraction auto set. Location reveals to fugitive at 20 percent time remaining.');
       }
 
-      // Timers
       gameStartMs = Date.now();
       const durMs = Math.max(1, cfg.game_minutes) * 60 * 1000;
       gameEndMs = gameStartMs + durMs;
       revealAtMs = gameStartMs + durMs * (1 - cfg.reveal_pct / 100);
 
-      // Start ticking
       if(tickId){ clearInterval(tickId); }
       timerWrap.style.display = 'block';
       tick();
@@ -538,7 +516,6 @@
         const progress = 100 * (1 - remaining / (gameEndMs - gameStartMs));
         progressFill.style.width = progress.toFixed(1) + '%';
 
-        // Reveal when threshold reached, show on map to simulate fugitive view
         if(!extractMarker && now >= revealAtMs && secretPoint){
           addExtractionMarker(secretPoint);
           statusEl.textContent = 'Extraction revealed for fugitives, seekers are notified but do not see the location';
@@ -577,7 +554,6 @@
       window.history.replaceState({}, '', url);
     }
 
-    // Read params to prefill
     window.addEventListener('DOMContentLoaded', () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get('code');
