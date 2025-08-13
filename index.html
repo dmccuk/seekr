@@ -195,38 +195,6 @@
     }
     .card:hover::after, .card:focus-visible::after, .card.show-tip::after{ opacity:1 }
 
-    /* Video gallery */
-    .vidGrid{ display:grid; grid-template-columns:1fr; gap:12px; }
-    .vidCard{
-      position:relative; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#000;
-      padding:0; cursor:pointer; box-shadow:0 10px 30px rgba(20,32,70,.06);
-    }
-    .vidCard img{ width:100%; display:block; aspect-ratio:16/9; object-fit:cover; }
-    .playBadge{
-      position:absolute; left:12px; bottom:12px;
-      background:linear-gradient(135deg,#4facfe,#00f2fe); color:#fff; padding:8px 12px; border-radius:999px;
-      font-weight:800; font-size:12px; box-shadow:0 4px 12px rgba(79,172,254,.35);
-    }
-
-    /* Modal */
-    .modal{
-      position:fixed; inset:0; background:rgba(14,18,32,.72);
-      display:none; align-items:center; justify-content:center;
-      padding:16px; z-index:10000;
-    }
-    .modal[aria-hidden="false"]{ display:flex; }
-    .modal-sheet{
-      background:#fff; border:1px solid var(--line); border-radius:16px;
-      width:min(960px, 96vw); max-height:90vh; overflow:auto;
-      padding:14px; box-shadow:0 20px 50px rgba(0,0,0,.35);
-    }
-    .modal-close{
-      position:sticky; top:0; float:right;
-      background:transparent; border:0; font-size:28px; line-height:1; cursor:pointer;
-      color:var(--muted);
-    }
-    .modal-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-
     .faq{ margin-top:28px; text-align:left; }
     .faq h2{ margin:8px 0 14px 0; font-size:22px; font-weight:800; text-align:center; }
     details{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
@@ -325,9 +293,6 @@
         </div>
       </div>
 
-      <!-- Watch gameplay button opens the modal -->
-      <button id="watchGameplay" class="demoBtn" type="button" aria-label="Watch gameplay video">Watch gameplay</button>
-
       <button id="gpsBtn" class="gpsBtn" type="button">Test compatibility</button>
       <p id="compatMsg" class="sub" aria-live="polite"></p>
       <div id="limitNote" class="limitNote">
@@ -349,19 +314,6 @@
           <small>Decoy Ping and Delay Reveal, paid with Tokens</small>
         </div>
       </div>
-
-      <!-- Video gallery, single card -->
-      <section class="hero" style="margin-top:22px;">
-        <h2 style="margin:0 0 8px 0; font-size:22px; font-weight:800;">Gameplay video</h2>
-        <p class="sub" style="margin:0 0 14px 0;">Two views in one clip, fugitive and hunter.</p>
-
-        <div class="vidGrid">
-          <button class="vidCard" data-src="assets/seekr_demo_gameplay.mp4" data-poster="assets/seekr_demo_gameplay.jpg" type="button" aria-label="Play gameplay video">
-            <img src="assets/seekr_demo_gameplay.jpg" alt="Gameplay video thumbnail" loading="lazy">
-            <span class="playBadge">Play</span>
-          </button>
-        </div>
-      </section>
 
       <!-- Interest signup -->
       <section class="hero" style="margin-top:22px;">
@@ -440,7 +392,7 @@
 
         <details>
           <summary>What game modes are supported?<span class="chev"></span></summary>
-          <div class="answer">Many seekers versus one or two fugitives, team versus team across a larger zone, large zone hunts with a late extraction reveal. Everyone can start anywhere inside the zone.</div>
+          <div class="answer">Many seekers vs one or two fugitives, team vs team across a larger zone, large zone hunts with a late extraction reveal. Everyone can start anywhere inside the zone.</div>
         </details>
 
         <details>
@@ -476,17 +428,6 @@
     </section>
   </div>
 
-  <!-- Gameplay modal -->
-  <div id="videoModal" class="modal" aria-hidden="true" role="dialog" aria-label="Gameplay video">
-    <div class="modal-sheet" role="document">
-      <button id="closeModal" class="modal-close" aria-label="Close video">&times;</button>
-      <video id="modalVideo" controls playsinline preload="metadata" poster="assets/seekr_demo_gameplay.jpg" style="width:100%;border-radius:12px;">
-        <source src="assets/seekr_demo_gameplay.mp4" type="video/mp4" />
-        Your browser cannot play this video.
-      </video>
-    </div>
-  </div>
-
   <!-- Tooltip on tap for mobile -->
   <script>
     document.querySelectorAll('.card').forEach(el => {
@@ -498,7 +439,7 @@
       el.addEventListener('blur', () => el.classList.remove('show-tip'));
     });
 
-    // Respect reduced motion by pausing the teaser video
+    // Respect reduced motion by pausing the video
     const videoEl = document.getElementById('demoVideo');
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     function handleMotion(){
@@ -506,8 +447,7 @@
       else if(videoEl){ videoEl.play().catch(()=>{}); }
     }
     handleMotion();
-    if (mediaQuery.addEventListener) mediaQuery.addEventListener('change', handleMotion);
-    else mediaQuery.addListener(handleMotion);
+    mediaQuery.addEventListener ? mediaQuery.addEventListener('change', handleMotion) : mediaQuery.addListener(handleMotion);
   </script>
 
   <!-- Interest form script -->
@@ -627,39 +567,6 @@
         e.preventDefault();
         const el = document.getElementById('faq');
         if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    });
-  </script>
-
-  <!-- Gameplay modal controller -->
-  <script>
-    const videoModal = document.getElementById('videoModal');
-    const modalVideo = document.getElementById('modalVideo');
-    const openBtn = document.getElementById('watchGameplay');
-    const closeBtn = document.getElementById('closeModal');
-
-    function openVideo(src, poster){
-      if(src){ modalVideo.src = src; }
-      if(poster){ modalVideo.poster = poster; }
-      videoModal.setAttribute('aria-hidden', 'false');
-      modalVideo.play().catch(()=>{});
-    }
-    function closeVideo(){
-      videoModal.setAttribute('aria-hidden', 'true');
-      modalVideo.pause();
-    }
-
-    if(openBtn){ openBtn.addEventListener('click', () => openVideo('assets/seekr_demo_gameplay.mp4','assets/seekr_demo_gameplay.jpg')); }
-    if(closeBtn){ closeBtn.addEventListener('click', closeVideo); }
-    videoModal.addEventListener('click', (e) => { if(e.target === videoModal) closeVideo(); });
-    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeVideo(); });
-
-    // Gallery card opens the same video
-    document.querySelectorAll('.vidCard').forEach(el => {
-      el.addEventListener('click', () => {
-        const src = el.getAttribute('data-src') || 'assets/seekr_demo_gameplay.mp4';
-        const poster = el.getAttribute('data-poster') || 'assets/seekr_demo_gameplay.jpg';
-        openVideo(src, poster);
       });
     });
   </script>
