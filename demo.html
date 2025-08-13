@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Seekr.run — Gameplay demo</title>
-  <meta name="description" content="Seekr.run gameplay demo — set a zone, configure rules, and get a dummy code" />
+  <title>Seekr.run - Gameplay demo</title>
+  <meta name="description" content="Seekr.run gameplay demo, set a zone, configure rules, and get a dummy code" />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
 
   <!-- Fonts -->
@@ -20,7 +20,7 @@
     :root{
       --ink:#0e1220; --muted:#55627a; --bg:#f6f8fc; --card:#ffffff;
       --brand:#1e4cff; --accent:#35c18f; --line:#e7ecf3;
-      --good:#1f7a48; --bad:#b00020;
+      --good:#1f7a48; --bad:#b00020; --focus:#1e4cff33;
     }
     *{ box-sizing:border-box }
     html, body{ height:100% }
@@ -28,10 +28,11 @@
       margin:0; background:var(--bg); color:var(--ink);
       font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       line-height:1.35;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     }
     .shell{ max-width:1100px; margin:0 auto; padding:24px 16px 56px }
 
-    /* Header — matches index look */
+    /* Header */
     header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px }
     .brand{
       font-weight:900; font-size:32px; letter-spacing:.6px; line-height:1.1; color:var(--ink);
@@ -49,6 +50,8 @@
       text-decoration:none; display:inline-block;
     }
     .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
+    .btn.ghost{ background:#fff; color:#0e1220; border:1px solid var(--line); box-shadow:none }
+    .btn:focus-visible{ outline:3px solid var(--focus); outline-offset:2px }
 
     /* How it works strip */
     .hiw{
@@ -112,6 +115,29 @@
     .whatsapp-btn svg{ width:22px; height:22px; display:block; fill:currentColor }
 
     .footnote{ margin-top:8px; font-size:12px; color:var(--muted) }
+
+    /* Onboarding overlay */
+    .overlay{
+      position:fixed; inset:0; background:rgba(14,18,32,.6);
+      display:none; align-items:center; justify-content:center; padding:16px; z-index:9999;
+    }
+    .overlay .sheet{
+      background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; max-width:520px; width:min(90vw,520px);
+      box-shadow:0 20px 50px rgba(0,0,0,.25);
+    }
+    .overlay h3{ margin:0 0 8px 0; font-size:18px; font-weight:800 }
+    .overlay p{ margin:0 0 10px 0; color:var(--muted) }
+    .overlay .steps{ display:grid; gap:8px; margin:12px 0 }
+    .overlay .steps div{ display:flex; gap:10px; align-items:center; background:#f8faff; border:1px solid var(--line); border-radius:12px; padding:10px }
+    .overlay .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .btn{ transition:none }
+    }
+
+    /* Focus ring helper */
+    :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
   </style>
 </head>
 <body>
@@ -119,16 +145,16 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
-        <div class="tag">Gameplay demo — set a zone, configure rules, get a dummy code</div>
+        <div class="tag">Gameplay demo, set a zone, configure rules, get a dummy code</div>
       </div>
       <a href="index.html" class="btn secondary">Back</a>
     </header>
 
     <!-- How it works strip -->
     <div class="hiw" aria-label="How it works">
-      <div class="chip"><span class="ico">📍</span>Choose zone</div>
-      <div class="chip"><span class="ico">🕵️</span>Hide or Seek</div>
-      <div class="chip"><span class="ico">🏁</span>Reach destination</div>
+      <div class="chip"><span class="ico">📍</span>Set the zone</div>
+      <div class="chip"><span class="ico">🕵️</span>Hide or seek</div>
+      <div class="chip"><span class="ico">🏁</span>Reach extraction</div>
     </div>
 
     <div class="grid">
@@ -143,7 +169,7 @@
             <input id="radiusKm" type="number" min="0.2" max="50" step="0.1" value="0.6" />
           </div>
           <div class="stack">
-            <label class="muted">Center (drag the pin)</label>
+            <label class="muted">Center, drag the pin</label>
             <div class="pill" id="centerReadout">lat 0, lng 0</div>
           </div>
         </div>
@@ -154,11 +180,9 @@
             <input id="uncertaintyM" type="number" min="10" max="200" step="5" value="50" />
           </div>
           <div class="row">
-            <button id="btnExtract" class="btn secondary" type="button" title="Click then tap map to place">
-              Set extraction point
-            </button>
+            <button id="btnExtract" class="btn ghost" type="button" title="Click then tap map to place">Set extraction point</button>
             <span id="extractReadout" class="pill" style="display:none;"></span>
-            <button id="btnClearExtract" class="btn secondary" type="button" style="display:none;">Clear</button>
+            <button id="btnClearExtract" class="btn ghost" type="button" style="display:none;">Clear</button>
           </div>
         </div>
 
@@ -168,6 +192,14 @@
       <!-- Rules + abilities + code -->
       <section class="card">
         <h2>Rules</h2>
+
+        <!-- Quick presets -->
+        <div class="row" style="margin-bottom:8px;">
+          <button class="btn ghost" id="presetHunt" type="button" title="Many seekers vs 1 or 2 fugitives">Preset, Fugitive Hunt</button>
+          <button class="btn ghost" id="presetTeam" type="button" title="Team vs team across a larger zone">Preset, Team Battle</button>
+          <button class="btn ghost" id="presetLarge" type="button" title="Large zone hunts with extraction">Preset, Large Zone</button>
+        </div>
+
         <div class="two">
           <div class="stack">
             <label for="gameLen">Game length (minutes)</label>
@@ -183,8 +215,8 @@
           <label><strong>Special Abilities</strong> (optional strategy)</label>
           <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
           <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
-          <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal (seeker-only)</label>
-          <div class="fineprint">Cooldowns and limits keep every match fair — no pay-to-win.</div>
+          <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal, seeker only</label>
+          <div class="fineprint">Cooldowns and limits keep every match fair, no pay to win.</div>
         </div>
 
         <div class="two" style="margin-top:10px;">
@@ -193,7 +225,7 @@
             <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
           </div>
           <div class="stack">
-            <label>Wallet (demo)</label>
+            <label>Wallet, demo</label>
             <div class="pill"><strong>$2.59</strong> demo balance</div>
           </div>
         </div>
@@ -203,7 +235,6 @@
             <div class="muted">Game code</div>
             <div id="code" class="code">AAAAAA</div>
             <button id="btnCode" class="btn" type="button">Generate</button>
-            <!-- WhatsApp share -->
             <button id="btnShareWA" class="whatsapp-btn" type="button" title="Share on WhatsApp" aria-label="Share on WhatsApp">
               <svg viewBox="0 0 32 32" aria-hidden="true">
                 <path d="M19.11 17.39c-.3-.15-1.77-.87-2.05-.97-.28-.1-.49-.15-.7.15s-.8.97-.98 1.17c-.18.2-.36.22-.66.07-.3-.15-1.28-.47-2.44-1.5-.9-.8-1.52-1.78-1.7-2.08-.18-.3-.02-.46.13-.61.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.7-1.69-.96-2.3-.25-.6-.51-.52-.7-.53l-.6-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.2 5.08 4.49.71.31 1.27.5 1.7.64.71.23 1.36.2 1.87.12.57-.09 1.77-.72 2.03-1.42.25-.7.25-1.29.18-1.42-.07-.13-.27-.2-.57-.35zM16 3.1c-7.12 0-12.9 5.78-12.9 12.9 0 2.28.6 4.51 1.75 6.47L3 29l6.74-1.77a12.83 12.83 0 0 0 6.26 1.6c7.12 0 12.9-5.78 12.9-12.9S23.12 3.1 16 3.1zm0 23.36c-2.15 0-4.25-.58-6.08-1.68l-.44-.26-4.02 1.06 1.08-3.92-.28-.45a10.77 10.77 0 1 1 9.74 5.25z" fill="currentColor"/>
@@ -212,10 +243,27 @@
           </div>
 
           <button id="btnStart" class="btn" type="button">Start demo round</button>
-          <div id="status" class="footnote"></div>
+          <div id="status" class="footnote" aria-live="polite"></div>
           <div class="footnote">Questions? <a href="index.html#faq">Check the FAQ</a>.</div>
         </div>
       </section>
+    </div>
+  </div>
+
+  <!-- Onboarding overlay -->
+  <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="obTitle" aria-hidden="true">
+    <div class="sheet">
+      <h3 id="obTitle">Quick setup</h3>
+      <p>Three steps and you are ready.</p>
+      <div class="steps">
+        <div>1, Drag the pin to set the center and adjust the radius.</div>
+        <div>2, Click Set extraction point then tap the map.</div>
+        <div>3, Pick rules, generate a code, share with friends.</div>
+      </div>
+      <div class="actions">
+        <button id="obSkip" class="btn ghost" type="button">Skip</button>
+        <button id="obGo" class="btn" type="button">Got it</button>
+      </div>
     </div>
   </div>
 
@@ -230,6 +278,7 @@
     const btnExtract = document.getElementById('btnExtract');
     const btnClearExtract = document.getElementById('btnClearExtract');
     const extractReadout = document.getElementById('extractReadout');
+    const statusEl = document.getElementById('status');
 
     function setCenterReadout(latlng){
       centerReadout.textContent = 'lat ' + latlng.lat.toFixed(5) + ', lng ' + latlng.lng.toFixed(5);
@@ -238,7 +287,7 @@
     function drawUncertainty(latlng, meters){
       if(!uncertaintyCircle){
         uncertaintyCircle = L.circle(latlng, {
-          radius: meters, color:'#f59f00', weight:2, fillColor:'#f59f00', fillOpacity:0.12, dashArray:'4,6'
+          radius: meters, color:'#f59f00', weight:2, fillColor:'#f59f00', fillOpacity:0.12, dashArray:'4,6', className:'uncertainty'
         }).addTo(map);
       }else{
         uncertaintyCircle.setLatLng(latlng);
@@ -252,7 +301,7 @@
       const start = L.latLng(lat, lng);
       map.setView(start, 15);
 
-      centerMarker = L.marker(start, { draggable:true }).addTo(map);
+      centerMarker = L.marker(start, { draggable:true, title:'Drag to set center' }).addTo(map);
       areaCircle = L.circle(start, { radius: Number(radiusInput.value) * 1000, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:0.12 }).addTo(map);
       setCenterReadout(start);
       drawUncertainty(start, Number(uncertaintyInput.value));
@@ -283,22 +332,26 @@
     }
 
     radiusInput.addEventListener('input', () => {
-      const km = Math.max(0.2, Math.min(50, Number(radiusInput.value) || 0.6));
+      const km = clamp(Number(radiusInput.value), 0.2, 50, 0.6);
       areaCircle.setRadius(km * 1000);
     });
     uncertaintyInput.addEventListener('input', () => {
-      drawUncertainty(centerMarker.getLatLng(), Math.max(10, Math.min(200, Number(uncertaintyInput.value)||50)));
+      drawUncertainty(centerMarker.getLatLng(), clamp(Number(uncertaintyInput.value), 10, 200, 50));
     });
 
     btnExtract.addEventListener('click', () => {
       placingExtract = true;
       btnExtract.textContent = 'Tap map to set';
+      statusEl.textContent = 'Tap the map to place the extraction point';
+      statusEl.style.color = '#364d9b';
     });
     btnClearExtract.addEventListener('click', () => {
       if(extractMarker){ map.removeLayer(extractMarker); extractMarker = null; }
       extractReadout.style.display = 'none';
       btnClearExtract.style.display = 'none';
       btnExtract.textContent = 'Set extraction point';
+      statusEl.textContent = 'Extraction cleared';
+      statusEl.style.color = 'var(--bad)';
     });
 
     // Try geolocation for centering
@@ -312,11 +365,50 @@
       initMap();
     }
 
-    // Demo logic
+    function clamp(n, min, max, fallback){
+      n = Number.isFinite(n) ? n : fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+  </script>
+
+  <script>
+    // Demo logic, presets, code sharing
     const codeEl = document.getElementById('code');
     const btnCode = document.getElementById('btnCode');
     const btnStart = document.getElementById('btnStart');
-    const statusEl = document.getElementById('status');
+    const btnShareWA = document.getElementById('btnShareWA');
+
+    const gameLen = document.getElementById('gameLen');
+    const tagDist = document.getElementById('tagDist');
+    const pingMins = document.getElementById('pingMins');
+    const puDelay = document.getElementById('puDelay');
+    const puDecoy = document.getElementById('puDecoy');
+    const puReveal = document.getElementById('puReveal');
+
+    // Presets
+    document.getElementById('presetHunt').addEventListener('click', () => {
+      gameLen.value = 25; tagDist.value = 8; pingMins.value = 3;
+      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
+      radiusKm.value = 0.8; uncertaintyM.value = 50; radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
+      nudge('Fugitive Hunt preset applied');
+    });
+    document.getElementById('presetTeam').addEventListener('click', () => {
+      gameLen.value = 40; tagDist.value = 10; pingMins.value = 4;
+      puDelay.checked = true; puDecoy.checked = false; puReveal.checked = true;
+      radiusKm.value = 1.2; uncertaintyM.value = 60; radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
+      nudge('Team Battle preset applied');
+    });
+    document.getElementById('presetLarge').addEventListener('click', () => {
+      gameLen.value = 60; tagDist.value = 12; pingMins.value = 5;
+      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = false;
+      radiusKm.value = 2.0; uncertaintyM.value = 75; radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
+      nudge('Large Zone preset applied');
+    });
+
+    function nudge(t){
+      statusEl.textContent = t;
+      statusEl.style.color = 'var(--good)';
+    }
 
     function makeCode(len=6){
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -327,39 +419,95 @@
 
     btnCode.addEventListener('click', () => {
       codeEl.textContent = makeCode();
-      statusEl.textContent = 'New demo code created — share this with friends';
+      statusEl.textContent = 'New demo code created, share this with friends';
       statusEl.style.color = 'var(--good)';
+      updateUrlParam('code', codeEl.textContent.trim());
     });
 
     btnStart.addEventListener('click', () => {
       const cfg = {
         center: centerMarker.getLatLng(),
         radius_km: Number(radiusInput.value),
-        game_minutes: Number(document.getElementById('gameLen').value),
-        tag_meters: Number(document.getElementById('tagDist').value),
-        ping_minutes: Number(document.getElementById('pingMins').value),
+        game_minutes: Number(gameLen.value),
+        tag_meters: Number(tagDist.value),
+        ping_minutes: Number(pingMins.value),
         uncertainty_m: Number(uncertaintyInput.value),
-        powerups: {
-          delay: document.getElementById('puDelay').checked,
-          decoy: document.getElementById('puDecoy').checked,
-          reveal: document.getElementById('puReveal').checked
+        abilities: {
+          delay: puDelay.checked,
+          decoy: puDecoy.checked,
+          reveal: puReveal.checked
         },
         extraction: extractMarker ? extractMarker.getLatLng() : null,
-        code: codeEl.textContent
+        code: codeEl.textContent.trim()
       };
       console.log('Demo config', cfg);
-      statusEl.textContent = 'Demo round created — code ' + cfg.code + (cfg.extraction ? ' — extraction set' : '');
+      statusEl.textContent = 'Demo round created, code ' + cfg.code + (cfg.extraction ? ', extraction set' : '');
       statusEl.style.color = 'var(--good)';
     });
 
-    // WhatsApp share: include code + URL param
-    document.getElementById('btnShareWA').addEventListener('click', () => {
-      const code = codeEl.textContent.trim();
+    // WhatsApp share: include code and URL param snapshot
+    btnShareWA.addEventListener('click', () => {
+      const code = codeEl.textContent.trim() || makeCode();
+      if(!codeEl.textContent.trim()){ codeEl.textContent = code; }
       const url = new URL(window.location.href);
-      if(code) url.searchParams.set('code', code);
-      const msg = 'Join my Seekr.run demo — code ' + code + ' ' + url.toString();
-      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+      url.searchParams.set('code', code);
+      url.searchParams.set('r', String(radiusInput.value));
+      url.searchParams.set('u', String(uncertaintyInput.value));
+      url.searchParams.set('g', String(gameLen.value));
+      url.searchParams.set('p', String(pingMins.value));
+      url.searchParams.set('t', String(tagDist.value));
+      const msg = 'Join my Seekr.run demo, code ' + code + ' ' + url.toString();
+      const w = window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank', 'noopener,noreferrer');
+      if(w){ w.opener = null; }
     });
+
+    function updateUrlParam(key, val){
+      const url = new URL(window.location.href);
+      url.searchParams.set(key, val);
+      window.history.replaceState({}, '', url);
+    }
+
+    // Read params to prefill
+    window.addEventListener('DOMContentLoaded', () => {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
+      const r = parseFloat(url.searchParams.get('r'));
+      const u = parseFloat(url.searchParams.get('u'));
+      const g = parseFloat(url.searchParams.get('g'));
+      const p = parseFloat(url.searchParams.get('p'));
+      const t = parseFloat(url.searchParams.get('t'));
+      if(code){ codeEl.textContent = code; }
+      if(Number.isFinite(r)){ radiusInput.value = clamp(r, 0.2, 50, 0.6); radiusInput.dispatchEvent(new Event('input')); }
+      if(Number.isFinite(u)){ uncertaintyInput.value = clamp(u, 10, 200, 50); uncertaintyInput.dispatchEvent(new Event('input')); }
+      if(Number.isFinite(g)){ gameLen.value = clamp(g, 5, 240, 30); }
+      if(Number.isFinite(p)){ pingMins.value = clamp(p, 1, 15, 5); }
+      if(Number.isFinite(t)){ tagDist.value = clamp(t, 2, 50, 8); }
+      maybeShowOverlay();
+    });
+  </script>
+
+  <script>
+    // First run onboarding, stored in session
+    const overlay = document.getElementById('overlay');
+    const obSkip = document.getElementById('obSkip');
+    const obGo = document.getElementById('obGo');
+
+    function maybeShowOverlay(){
+      try{
+        if(sessionStorage.getItem('seekr_demo_seen')) return;
+      }catch(_){}
+      overlay.style.display = 'flex';
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    function hideOverlay(){
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-hidden', 'true');
+      try{ sessionStorage.setItem('seekr_demo_seen', '1'); }catch(_){}
+    }
+    obSkip.addEventListener('click', hideOverlay);
+    obGo.addEventListener('click', hideOverlay);
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) hideOverlay(); });
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hideOverlay(); });
   </script>
 </body>
 </html>
