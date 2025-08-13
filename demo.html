@@ -65,7 +65,7 @@
     .hiw .ico{ width:26px; height:26px; border-radius:8px; background:#eef2ff; display:grid; place-items:center; font-size:14px; color:var(--brand) }
     @media (max-width:720px){ .hiw{ grid-template-columns:1fr } }
 
-    /* Cards & layout */
+    /* Cards and layout */
     .grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:18px }
     @media (max-width:900px){ .grid{ grid-template-columns:1fr } }
 
@@ -99,7 +99,7 @@
     .switch input:checked + .track{ background:#26a269 } .switch input:checked + .track .dot{ left:23px }
     .fineprint{ font-size:12px; color:var(--muted); }
 
-    /* Code box + WhatsApp */
+    /* Code box and WhatsApp */
     .codeBox{
       display:flex; gap:8px; align-items:center; flex-wrap:wrap;
       background:#f7f9ff; border:1px dashed #c7d2ee; padding:10px 12px; border-radius:12px;
@@ -136,6 +136,13 @@
     #progress{ height:6px; border-radius:6px; background:#eef2fa; border:1px solid var(--line); margin-top:6px; }
     #progressFill{ height:100%; width:0%; background:#1e4cff; border-radius:6px; }
 
+    /* Toast */
+    .toast{
+      position:fixed; left:50%; bottom:20px; transform:translateX(-50%);
+      background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px;
+      box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px;
+    }
+
     /* Reduced motion */
     @media (prefers-reduced-motion: reduce){
       .btn{ transition:none }
@@ -170,7 +177,7 @@
 
         <div class="two" style="margin-top:10px;">
           <div class="stack">
-            <label for="radiusKm">Area radius (km)</label>
+            <label for="radiusKm">Area radius, km</label>
             <input id="radiusKm" type="number" min="0.2" max="50" step="0.1" value="0.6" />
           </div>
           <div class="stack">
@@ -181,11 +188,11 @@
 
         <div class="two" style="margin-top:10px;">
           <div class="stack">
-            <label for="uncertaintyM">Last ping uncertainty (m)</label>
+            <label for="uncertaintyM">Last ping uncertainty, m</label>
             <input id="uncertaintyM" type="number" min="10" max="200" step="5" value="50" />
           </div>
-          <div class="stack">
-            <label class="muted">Extraction status</label>
+          <div class="row">
+            <button id="btnSecretExtract" class="btn ghost" type="button" title="Auto place a hidden extraction inside the zone">Set extraction point</button>
             <span id="extractReadout" class="pill" style="display:none;">Extraction location set, reveals at 20 percent remaining</span>
           </div>
         </div>
@@ -193,7 +200,7 @@
         <div class="footnote">Your location is used only to center this demo map.</div>
       </section>
 
-      <!-- Rules + abilities + code -->
+      <!-- Rules and code -->
       <section class="card">
         <h2>Rules</h2>
 
@@ -206,11 +213,11 @@
 
         <div class="two">
           <div class="stack">
-            <label for="gameLen">Game length (minutes)</label>
+            <label for="gameLen">Game length, minutes</label>
             <input id="gameLen" type="number" min="5" max="240" step="5" value="30" />
           </div>
           <div class="stack">
-            <label for="tagDist">Tag distance (meters)</label>
+            <label for="tagDist">Tag distance, meters</label>
             <input id="tagDist" type="number" min="2" max="50" step="1" value="8" />
           </div>
         </div>
@@ -220,10 +227,10 @@
           <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
           <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
           <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal, seeker only</label>
-          <div class="fineprint">Twists cost 25 Tokens per use, cooldowns keep matches fair.</div>
+          <div class="fineprint">Each twist costs 25 Tokens to use.</div>
         </div>
 
-        <div class="two" style="margin-top:10px;">
+        <div class="two" style="margin-top:10px%;">
           <div class="stack">
             <label for="pingMins">Seeker ping interval, minutes</label>
             <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
@@ -268,7 +275,7 @@
       <p>Three steps and you are ready.</p>
       <div class="steps">
         <div>1, Drag the pin to set the center and adjust the radius.</div>
-        <div>2, Extraction is auto placed and hidden, it reveals at 20 percent remaining.</div>
+        <div>2, Press Set extraction point, this auto places a hidden destination, it reveals at 20 percent remaining.</div>
         <div>3, Pick rules, generate a code, share with friends.</div>
       </div>
       <div class="actions">
@@ -278,6 +285,9 @@
     </div>
   </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
   <script>
     // Map setup
     let map, centerMarker, areaCircle, uncertaintyCircle, extractMarker;
@@ -285,11 +295,13 @@
     const centerReadout = document.getElementById('centerReadout');
     const radiusInput = document.getElementById('radiusKm');
     const uncertaintyInput = document.getElementById('uncertaintyM');
+    const btnSecretExtract = document.getElementById('btnSecretExtract');
     const extractReadout = document.getElementById('extractReadout');
     const statusEl = document.getElementById('status');
     const timerWrap = document.getElementById('timerWrap');
     const timeLeft = document.getElementById('timeLeft');
     const progressFill = document.getElementById('progressFill');
+    const toastEl = document.getElementById('toast');
 
     // Secret extraction state
     let secretPoint = null;
@@ -297,6 +309,13 @@
     let gameEndMs = 0;
     let revealAtMs = 0;
     let tickId = null;
+
+    function showToast(t){
+      toastEl.textContent = t;
+      toastEl.style.display = 'block';
+      clearTimeout(toastEl._t);
+      toastEl._t = setTimeout(() => { toastEl.style.display = 'none'; }, 2200);
+    }
 
     function setCenterReadout(latlng){
       centerReadout.textContent = 'lat ' + latlng.lat.toFixed(5) + ', lng ' + latlng.lng.toFixed(5);
@@ -398,6 +417,18 @@
       extractReadout.textContent = 'Extraction @ ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
     }
 
+    // Set secret extraction point, keep it hidden
+    btnSecretExtract.addEventListener('click', () => {
+      const center = centerMarker.getLatLng();
+      const radiusMeters = clamp(Number(radiusInput.value), 0.2, 50, 0.6) * 1000;
+      secretPoint = randomPointInCircle(center, radiusMeters);
+      if(extractMarker){ map.removeLayer(extractMarker); extractMarker = null; }
+      extractReadout.style.display = 'inline-block';
+      extractReadout.textContent = 'Extraction location set, reveals at 20 percent remaining';
+      showToast('Extraction point confirmed. Location reveals to fugitive at 20 percent time remaining.');
+      statusEl.textContent = 'Extraction set, hidden until late game';
+      statusEl.style.color = '#1f7a48';
+    });
   </script>
 
   <script>
@@ -456,7 +487,7 @@
       updateUrlParam('code', codeEl.textContent.trim());
     });
 
-    // Start demo, auto place secret extraction and reveal at 20 percent remaining
+    // Start demo, reveal at 20 percent remaining
     btnStart.addEventListener('click', () => {
       const cfg = {
         center: centerMarker.getLatLng(),
@@ -475,17 +506,20 @@
         reveal_pct: 20
       };
 
+      // If the host did not press Set extraction point, auto place now
+      if(!secretPoint){
+        const radiusMeters = cfg.radius_km * 1000;
+        secretPoint = randomPointInCircle(cfg.center, radiusMeters);
+        extractReadout.style.display = 'inline-block';
+        extractReadout.textContent = 'Extraction location set, reveals at 20 percent remaining';
+        showToast('Extraction auto set. Location reveals to fugitive at 20 percent time remaining.');
+      }
+
       // Timers
       gameStartMs = Date.now();
       const durMs = Math.max(1, cfg.game_minutes) * 60 * 1000;
       gameEndMs = gameStartMs + durMs;
       revealAtMs = gameStartMs + durMs * (1 - cfg.reveal_pct / 100);
-
-      // Auto place secret extraction
-      secretPoint = randomPointInCircle(cfg.center, cfg.radius_km * 1000);
-      if(extractMarker){ map.removeLayer(extractMarker); extractMarker = null; }
-      extractReadout.style.display = 'inline-block';
-      extractReadout.textContent = 'Extraction location set, reveals at 20 percent remaining';
 
       // Start ticking
       if(tickId){ clearInterval(tickId); }
@@ -504,10 +538,12 @@
         const progress = 100 * (1 - remaining / (gameEndMs - gameStartMs));
         progressFill.style.width = progress.toFixed(1) + '%';
 
+        // Reveal when threshold reached, show on map to simulate fugitive view
         if(!extractMarker && now >= revealAtMs && secretPoint){
           addExtractionMarker(secretPoint);
           statusEl.textContent = 'Extraction revealed for fugitives, seekers are notified but do not see the location';
           statusEl.style.color = '#364d9b';
+          showToast('Extraction revealed to fugitive. Get within 10 meters to win.');
         }
 
         if(remaining === 0){
