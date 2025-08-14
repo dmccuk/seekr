@@ -213,34 +213,48 @@
     }
 
     async function ensureGameAndMembership(uid){
-      const gameRef = doc(db, "games", code);
+      const gameRef   = doc(db, "games", code);
       const memberRef = doc(db, "games", code, "members", uid);
-
-      // Create game if missing, and capture host if empty
-      const gSnap = await getDoc(gameRef);
-      if (!gSnap.exists()){
-        await setDoc(gameRef, { code, status:"lobby", createdAt: serverTimestamp() }, { merge:true });
+    
+      // 1) Ensure game exists; first writer becomes host
+      try {
+        const gSnap = await getDoc(gameRef);                 // allowed: allow read: if signedIn()
+        if (!gSnap.exists()) {
+          await setDoc(gameRef, { code, status:"lobby", createdAt: serverTimestamp() }, { merge:true });
+        }
+        const gSnap2 = await getDoc(gameRef);
+        const gData = gSnap2.data() || {};
+        if (!gData.hostUid) {
+          try { await setDoc(gameRef, { hostUid: uid }, { merge:true }); } catch {}
+        }
+      } catch(e){
+        console.warn("Game ensure failed", e);
       }
-      const gSnap2 = await getDoc(gameRef);
-      const g = gSnap2.data() || {};
-      if (!g.hostUid){
-        try{ await setDoc(gameRef, { hostUid: uid }, { merge:true }); }catch{}
-      }
-
-      // Create member if missing with default seeker + codename
-      const mSnap = await getDoc(memberRef);
-      if (!mSnap.exists()){
+    
+      // 2) **Write-first** membership bootstrap (no pre-read!)
+      //    - If doc doesn't exist => this is a CREATE (allowed by rules)
+      //    - If it exists        => this is an UPDATE and you're already a member (allowed)
+      try{
         await setDoc(memberRef, {
           role: "seeker",
-          displayName: makeCodename(),
           createdAt: serverTimestamp()
         }, { merge:true });
-      } else {
-        // Ensure a displayName exists
-        const d = mSnap.data() || {};
-        if (!d.displayName){
-          await setDoc(memberRef, { displayName: makeCodename() }, { merge:true });
-        }
+      } catch(e){
+        console.warn("Member bootstrap failed", e);
+      }
+    
+      // 3) Now you're a member; safely set a codename ONLY if missing
+      try{
+        await runTransaction(db, async (tx) => {
+          const m = await tx.get(memberRef);   // allowed now (isMember == true)
+          if (!m.exists()) return;             // very unlikely here
+          const d = m.data() || {};
+          if (!d.displayName) {
+            tx.set(memberRef, { displayName: makeCodename() }, { merge:true });
+          }
+        });
+      }catch(e){
+        console.warn("Codename ensure failed", e);
       }
     }
 
