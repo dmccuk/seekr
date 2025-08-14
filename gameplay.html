@@ -283,58 +283,77 @@
       const uid = auth.currentUser?.uid;
       if (uid) watchMyPings(uid); // reflect my last saved ping
 
-      // Subscribe to game doc (times + config)
+      // Subscribe to game doc, times and config
       const gameRef = doc(db, "games", code);
       onSnapshot(gameRef, snap => {
-        console.debug('game doc raw times', { endsAt: g.endsAt, revealAt: g.revealAt, startsAt: g.startsAt, rules: g.rules, durationMs: g.durationMs });
-        if (!snap.exists()) { hint.textContent = "Game not found"; return; }
+        if (!snap.exists()) { 
+          hint.textContent = "Game not found"; 
+          return; 
+        }
         const g = snap.data();
-
-        // Get uncertainty (various shapes supported)
+      
+        // Now it is safe to log
+        console.log("game doc raw times", { 
+          endsAt: g.endsAt, 
+          revealAt: g.revealAt, 
+          startsAt: g.startsAt, 
+          rules: g.rules, 
+          durationMs: g.durationMs 
+        });
+      
+        // Get uncertainty, various shapes supported
         const cfg = g.lobbyConfig || {};
         uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
-
+      
         // Normalize times, Timestamp, number in seconds or milliseconds, ISO string, or {seconds,nanoseconds}
         const toMs = (v) => {
           if (!v) return 0;
-          if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
-          if (typeof v === 'string') { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
-          if (typeof v === 'object' && typeof v.toDate === 'function') return v.toDate().getTime();
-          if (typeof v === 'object' && typeof v.seconds === 'number') {
+          if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+          if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
+          if (typeof v === "object" && typeof v.toDate === "function") return v.toDate().getTime();
+          if (typeof v === "object" && typeof v.seconds === "number") {
             return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
           }
           return 0;
         };
-        
+      
         const endsAtMs   = toMs(g.endsAt)   || toMs(g.revealSchedule?.endAt);
         const revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
-        
-        if (!endsAtMs) {
-          hint.textContent = 'Waiting for host to start';
-          timePill.textContent = 'Time, waiting';
+      
+        // Optional fallback, start plus duration
+        let endMs = endsAtMs;
+        if (!endMs && g.startsAt && (g.durationMs || g.rules?.game_minutes)) {
+          const startMs = toMs(g.startsAt);
+          const durMs = g.durationMs || Math.max(1, Number(g.rules?.game_minutes || 0)) * 60 * 1000;
+          if (startMs) endMs = startMs + durMs;
+        }
+      
+        if (!endMs) {
+          hint.textContent = "Waiting for host to start";
+          timePill.textContent = "Time, waiting";
           return;
         }
-
-        // Start/update the ticking timer
+      
+        // Start or restart the countdown
         if (tickId) clearInterval(tickId);
         const tick = () => {
           const now = Date.now();
-          const left = Math.max(0, endsAtMs - now);
-          const m = Math.floor(left/60000);
-          const s = String(Math.floor((left%60000)/1000)).padStart(2,'0');
+          const left = Math.max(0, endMs - now);
+          const m = Math.floor(left / 60000);
+          const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
           timePill.textContent = `Time, ${m}:${s}`;
-
-          if (role === "fugitive" && revealAtMs && now >= revealAtMs) {
-            showExtraction().catch(()=>{});
-          }
-          if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) {
-            toast("Extraction location has been disclosed to fugitives.");
-            revealToastShown = true;
+      
+          if (role === "fugitive" && revealAtMs && now >= revealAtMs) { showExtraction().catch(() => {}); }
+          if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) { 
+            toast("Extraction location has been disclosed to fugitives."); 
+            revealToastShown = true; 
           }
           if (left === 0) { clearInterval(tickId); tickId = null; }
         };
         tick();
         tickId = setInterval(tick, 1000);
+      });
+
 
         // Hints
         hint.textContent = (role === "seeker")
