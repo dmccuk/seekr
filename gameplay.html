@@ -286,6 +286,7 @@
       // Subscribe to game doc (times + config)
       const gameRef = doc(db, "games", code);
       onSnapshot(gameRef, snap => {
+        console.debug('game doc raw times', { endsAt: g.endsAt, revealAt: g.revealAt, startsAt: g.startsAt, rules: g.rules, durationMs: g.durationMs });
         if (!snap.exists()) { hint.textContent = "Game not found"; return; }
         const g = snap.data();
 
