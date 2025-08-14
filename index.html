@@ -384,7 +384,7 @@
       const raw = (codeInput.value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
       if(!raw){ codeInput.focus(); return; }
       // keep it simple, let gameplay handle unknown codes gracefully
-      window.location.href = 'gameplay.html?code=' + raw;
+      window.location.href = 'lobby.html?code=' + raw; // was gameplay.html
     });
 
     // WhatsApp share
