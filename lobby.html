@@ -539,7 +539,7 @@
           revealAt = null; // keep existing
         } else if (startsAt && endsAt) {
           const total = endsAt.getTime() - startsAt.getTime();
-          revealAt = new Date(endsAt.getTime() - Math.floor(total * 0.20)); // last 20%
+          revealAt = new Date(endsAt.getTime() - Math.floor(total * 0.95)); // first 5%
         }
 
         try{
