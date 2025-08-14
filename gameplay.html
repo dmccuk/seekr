@@ -44,16 +44,7 @@
     .btn{ appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff; background:linear-gradient(135deg,#4facfe,#00f2fe); cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35); }
     .btn.secondary{ background:linear-gradient(135deg,#00f2fe,#4facfe); }
     .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:13px; color:#55627a; }
-    .notice{ margin-top:8px; font-size:12px; color:var(--muted) }
-
-    /* Join overlay */
-    .overlay{ position:fixed; inset:0; background:rgba(14,18,32,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:9999; }
-    .overlay .sheet{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; max-width:420px; width:min(92vw,420px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
-    .overlay h3{ margin:0 0 8px 0; font-size:18px; font-weight:800 }
-    .overlay p{ margin:0 0 10px 0; color:var(--muted) }
-    .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
-    .overlay .actions .btn{ min-width:120px }
-
+    .notice{ margin-top:8px; font-size:12px; color:#55627a }
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
   </style>
@@ -139,6 +130,9 @@
     let areaRadiusM = 0;
     let zoneFitDone = false;
     let wasOutside = false;
+
+    // Secret listener state
+    let secretListenerStarted = false;
 
     // Code from URL
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
@@ -250,6 +244,29 @@
           }
           if (map) map.setView(ll, Math.max(map.getZoom(), 15));
         });
+      });
+    }
+
+    // Start the secret listener for fugitives
+    function startSecretListener(){
+      if (secretListenerStarted) return;
+      secretListenerStarted = true;
+
+      const secretRef = doc(db, "games", code, "private", "secret");
+      onSnapshot(secretRef, snap => {
+        if (!snap.exists() || extractMarker) return;
+        const { lat, lng } = snap.data() || {};
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+
+        // Red pin with white outline
+        extractMarker = L.circleMarker([lat, lng], {
+          radius: 8, weight: 3, color: '#ffffff', fillColor: '#ff3b30', fillOpacity: 0.95
+        }).addTo(map);
+
+        map.setView([lat, lng], Math.max(map.getZoom(), 16));
+        toast("Extraction revealed, get within 10 meters to win.");
+      }, err => {
+        console.error("Secret listener error", err);
       });
     }
 
@@ -378,16 +395,27 @@
             return 0;
           };
 
-          const endsAtMs   = toMs(g.endsAt)   || toMs(g.revealSchedule?.endAt);
-          const revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
-          const startMs    = toMs(g.startsAt);
+          const endsAtMs = toMs(g.endsAt) || toMs(g.revealSchedule?.endAt);
+          const startMs  = toMs(g.startsAt);
 
-          // 4) Compute endMs with fallbacks and guards
+          // Compute endMs with fallbacks
           const rulesMinutes = Number(g.rules?.game_minutes || 0);
           const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
 
           let endMs = endsAtMs;
           if (!endMs && startMs && durMs) endMs = startMs + durMs;
+
+          // Reveal time, prefer explicit, else last 20 percent
+          let revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
+          if (!revealAtMs && startMs && endMs && endMs > startMs) {
+            const total = endMs - startMs;
+            revealAtMs = endMs - Math.floor(total * 0.95);
+          }
+
+          // If page opened after reveal, start secret listener for fugitives now
+          if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !secretListenerStarted) {
+            startSecretListener();
+          }
 
           const nowMs = Date.now();
 
@@ -415,7 +443,7 @@
             return;
           }
 
-          // 5) Start or restart the countdown
+          // 4) Start or restart the countdown
           if (tickId) clearInterval(tickId);
           const tick = () => {
             const now = Date.now();
@@ -424,13 +452,17 @@
             const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
             timePill.textContent = `Time, ${m}:${s}`;
 
-            // Reveal extraction for fugitives
-            if (role === "fugitive" && revealAtMs && now >= revealAtMs) { showExtraction().catch(() => {}); }
+            // Start the extraction listener at reveal time for fugitives
+            if (role === "fugitive" && revealAtMs && now >= revealAtMs && !secretListenerStarted) {
+              startSecretListener();
+            }
+
             // Notify seekers when reveal happens
             if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) {
               toast("Extraction location has been disclosed to fugitives.");
               revealToastShown = true;
             }
+
             if (left === 0) { clearInterval(tickId); tickId = null; }
           };
           tick();
@@ -466,24 +498,8 @@
       }, () => toast("Could not get location"), { enableHighAccuracy: true, timeout: 12000 });
     });
 
-    // Extraction for fugitives, after reveal
-    async function showExtraction(){
-      if (extractMarker) return;
-      const secretRef = doc(db, "games", code, "private", "secret");
-      try{
-        const snap = await getDoc(secretRef);
-        if (!snap.exists()) return;
-        const { lat, lng } = snap.data();
-        extractMarker = L.marker([lat, lng], {
-          icon: L.divIcon({ className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>' }),
-          interactive:false
-        }).addTo(map);
-        map.setView([lat, lng], Math.max(map.getZoom(), 16));
-        toast("Extraction revealed, get within 10 meters to win.");
-      }catch(e){
-        // Usually blocked by rules until reveal time, ignore
-      }
-    }
+    // Note, no showExtraction function here. We rely on the realtime listener so the pin appears
+    // the moment the secret exists and rules allow fugitives to read it.
   </script>
 </body>
 </html>
