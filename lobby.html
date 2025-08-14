@@ -47,7 +47,12 @@
       display:flex; align-items:center; justify-content:space-between; gap:12px;
       border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#fff;
     }
-    .name{ font-weight:700 }
+    .name{ font-weight:700; display:flex; align-items:center; gap:6px; }
+    .hostBadge{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:4px 8px; border-radius:999px; font-size:11px; font-weight:700;
+      background:#fff7e6; color:#b86f00; border:1px solid #ffe1a6;
+    }
     .subtle{ font-size:12px; color:var(--muted) }
     .role{
       display:inline-flex; gap:6px; background:#f7faff; border:1px solid var(--line); border-radius:999px; padding:4px;
@@ -102,10 +107,11 @@
         </ul>
 
         <div id="hostControls" style="margin-top:16px; display:none;">
-          <div class="info">You are the host. Make sure you set the zone + extraction in <a href="demo.html">setup</a> first.</div>
-          <div class="row" style="margin-top:8px;">
+          <div class="info" id="hostLine">You are the host.</div>
+          <div class="row" style="margin-top:8px; gap:8px;">
             <button id="startBtn" class="btn" type="button" disabled>Start game</button>
-            <button id="openAsHost" class="btn secondary" type="button">Open gameplay</button>
+            <button id="openAsHost" class="btn secondary" type="button">Join map (doesn’t start)</button>
+            <button id="resetBtn" class="btn danger" type="button" style="display:none;">Reset to lobby</button>
           </div>
           <div id="startMsg" class="info"></div>
         </div>
@@ -125,11 +131,11 @@
         <div id="memberList" class="list" aria-live="polite"></div>
 
         <div class="row" style="margin-top:12px;">
-          <button id="openGameplay" class="btn secondary" type="button">Open gameplay</button>
+          <button id="openGameplay" class="btn secondary" type="button">Join map (doesn’t start)</button>
         </div>
 
         <div id="liveNote" class="dangerNote" style="display:none;margin-top:8px;">
-          This round is already live. You can still join gameplay.
+          This round is live, roles are locked. You can still open the map.
         </div>
       </section>
     </div>
@@ -143,7 +149,7 @@
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import {
       getFirestore, doc, setDoc, getDoc, onSnapshot,
-      collection, query, orderBy, serverTimestamp, runTransaction
+      collection, query, orderBy, serverTimestamp, runTransaction, deleteField
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -169,7 +175,9 @@
     const infoTagM = document.getElementById('infoTagM');
     const infoUncM = document.getElementById('infoUncM');
     const hostControls = document.getElementById('hostControls');
+    const hostLine = document.getElementById('hostLine');
     const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
     const startMsg = document.getElementById('startMsg');
     const openAsHostBtn = document.getElementById('openAsHost');
     const memberList = document.getElementById('memberList');
@@ -190,6 +198,8 @@
     let me = { uid:null, isHost:false, displayName:null };
     let game = null;
     let roster = []; // [{uid, role, displayName}...]
+
+    const isLobby = () => (game && game.status === "lobby");
 
     function toast(t){
       toastEl.textContent = t;
@@ -215,10 +225,10 @@
     async function ensureGameAndMembership(uid){
       const gameRef   = doc(db, "games", code);
       const memberRef = doc(db, "games", code, "members", uid);
-    
-      // 1) Ensure game exists; first writer becomes host
+
+      // Ensure game exists; first writer becomes host
       try {
-        const gSnap = await getDoc(gameRef);                 // allowed: allow read: if signedIn()
+        const gSnap = await getDoc(gameRef);
         if (!gSnap.exists()) {
           await setDoc(gameRef, { code, status:"lobby", createdAt: serverTimestamp() }, { merge:true });
         }
@@ -230,10 +240,8 @@
       } catch(e){
         console.warn("Game ensure failed", e);
       }
-    
-      // 2) **Write-first** membership bootstrap (no pre-read!)
-      //    - If doc doesn't exist => this is a CREATE (allowed by rules)
-      //    - If it exists        => this is an UPDATE and you're already a member (allowed)
+
+      // Create/merge my membership
       try{
         await setDoc(memberRef, {
           role: "seeker",
@@ -242,12 +250,12 @@
       } catch(e){
         console.warn("Member bootstrap failed", e);
       }
-    
-      // 3) Now you're a member; safely set a codename ONLY if missing
+
+      // Ensure I have a codename
       try{
         await runTransaction(db, async (tx) => {
-          const m = await tx.get(memberRef);   // allowed now (isMember == true)
-          if (!m.exists()) return;             // very unlikely here
+          const m = await tx.get(memberRef);
+          if (!m.exists()) return;
           const d = m.data() || {};
           if (!d.displayName) {
             tx.set(memberRef, { displayName: makeCodename() }, { merge:true });
@@ -258,15 +266,19 @@
       }
     }
 
-    // Role switching with a transactional fugitive slot
+    // Role switching with a transactional fugitive slot (only in Lobby)
     async function claimFugitive(uid){
+      if (!isLobby()){ toast("Roles are locked while live"); return false; }
       const gameRef = doc(db, "games", code);
       const myRef = doc(db, "games", code, "members", uid);
       try{
         const ok = await runTransaction(db, async (tx) => {
           const gDoc = await tx.get(gameRef);
-          const current = gDoc.exists() ? (gDoc.data().fugitiveUid || null) : null;
-          if (current && current !== uid) return false; // already taken by someone else
+          if (!gDoc.exists()) return false;
+          const g = gDoc.data() || {};
+          if (g.status !== "lobby") return false;
+          const current = g.fugitiveUid || null;
+          if (current && current !== uid) return false; // already taken
           tx.set(gameRef, { fugitiveUid: uid }, { merge:true });
           tx.set(myRef, { role: "fugitive" }, { merge:true });
           return true;
@@ -282,12 +294,16 @@
     }
 
     async function releaseFugitive(uid){
+      if (!isLobby()){ toast("Roles are locked while live"); return; }
       const gameRef = doc(db, "games", code);
       const myRef = doc(db, "games", code, "members", uid);
       try{
         await runTransaction(db, async (tx) => {
           const gDoc = await tx.get(gameRef);
-          const current = gDoc.exists() ? (gDoc.data().fugitiveUid || null) : null;
+          if (!gDoc.exists()) return;
+          const g = gDoc.data() || {};
+          if (g.status !== "lobby") return;
+          const current = g.fugitiveUid || null;
           if (current === uid){
             tx.set(gameRef, { fugitiveUid: null }, { merge:true });
           }
@@ -332,8 +348,15 @@
 
         me.isHost = (game.hostUid === me.uid);
         hostControls.style.display = me.isHost ? 'block' : 'none';
-        gameTag.textContent = `${game.status === "live" ? "Live" : "Lobby"} • ${code}`;
+
+        // Host display in header (name if we know it)
+        const hostUid = game.hostUid || null;
+        let hostName = hostUid ? (roster.find(r => r.uid === hostUid)?.displayName || hostUid.slice(0,6)+"…") : "—";
+        const hostLabel = me.isHost ? "You" : hostName;
+
+        gameTag.textContent = `${game.status === "live" ? "Live" : "Lobby"} • ${code} • Host: ${hostLabel}`;
         liveNote.style.display = game.status === "live" ? 'block' : 'none';
+        resetBtn.style.display = (me.isHost && game.status !== "lobby") ? "inline-block" : "none";
 
         infoMinutes.textContent = Number(rules.game_minutes ?? 30);
         infoPingMinutes.textContent = Number(rules.ping_minutes ?? 5);
@@ -345,15 +368,20 @@
         const name = fugUid ? (roster.find(r => r.uid === fugUid)?.displayName || fugUid.slice(0,6)+"…") : "—";
         fugitiveSlotEl.textContent = `Fugitive: ${name}`;
 
-        // Host start gating: 1 fugitive + >=1 seeker
+        // Host start gating: 1 fugitive + >=1 seeker, only in Lobby
         const total = roster.length;
         const fugitiveCount = fugUid ? 1 : 0;
         const seekers = Math.max(0, total - fugitiveCount);
         if (me.isHost){
-          const ok = (fugitiveCount === 1) && (seekers >= 1);
+          const ok = (game.status === "lobby") && (fugitiveCount === 1) && (seekers >= 1);
           startBtn.disabled = !ok;
-          startMsg.textContent = ok ? '' : 'Need exactly 1 fugitive and at least 1 seeker.';
+          startMsg.textContent = ok
+            ? 'Ready to start.'
+            : (game.status !== "lobby"
+                ? 'Round is live. Use Reset to lobby to re-open roles.'
+                : 'Need exactly 1 fugitive and at least 1 seeker.');
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
+          hostLine.textContent = me.isHost ? 'You are the host.' : '';
         }
       });
 
@@ -362,6 +390,7 @@
       onSnapshot(qMembers, snap => {
         roster = snap.docs.map(d => ({ uid:d.id, ...(d.data()||{}) }));
         const fugUid = (game && game.fugitiveUid) || null;
+        const roundLocked = game && game.status !== "lobby";
 
         // Build UI
         const items = [];
@@ -369,20 +398,26 @@
           const isMe = (m.uid === me.uid);
           const name = m.displayName || (m.uid.slice(0,6)+"…");
           const isFugitive = (fugUid && fugUid === m.uid) || m.role === "fugitive";
+          const isHostRow = game && game.hostUid === m.uid;
 
           const row = document.createElement('div');
           row.className = 'member';
 
           const left = document.createElement('div');
+          left.className = 'left';
           left.innerHTML = `
-            <div class="name">${name} ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}</div>
+            <div class="name">
+              ${name}
+              ${isHostRow ? '<span class="hostBadge" title="Host">👑 Host</span>' : ''}
+              ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}
+            </div>
             <div class="subtle mono">#${m.uid.slice(0,6)}</div>
           `;
           row.appendChild(left);
 
           const right = document.createElement('div');
           if (isMe){
-            // my role controls (using the single-slot logic)
+            // my role controls (locked when not in Lobby)
             const wrap = document.createElement('div');
             wrap.className = 'role';
 
@@ -390,9 +425,10 @@
             btnF.type = 'button';
             btnF.className = 'seg' + (isFugitive ? ' active' : '');
             btnF.textContent = 'Fugitive';
-            btnF.disabled = !isFugitive && !!fugUid; // someone else owns the slot
+            btnF.disabled = roundLocked || (!isFugitive && !!fugUid); // taken or locked
+            if (roundLocked) btnF.title = "Roles are locked while the round is live";
             btnF.addEventListener('click', async () => {
-              if (isFugitive) return; // already mine
+              if (isFugitive) return;
               await claimFugitive(me.uid);
             });
 
@@ -400,6 +436,8 @@
             btnS.type = 'button';
             btnS.className = 'seg' + (!isFugitive ? ' active' : '');
             btnS.textContent = 'Seeker';
+            btnS.disabled = roundLocked; // cannot change while live
+            if (roundLocked) btnS.title = "Roles are locked while the round is live";
             btnS.addEventListener('click', async () => {
               if (!isFugitive) return;
               await releaseFugitive(me.uid);
@@ -440,12 +478,24 @@
           fugitiveSlotEl.textContent = `Fugitive: ${name2}`;
         }
 
-        // host start gating refresh (in case game listener hasn't fired yet)
+        // refresh Start gating (in case game listener hasn't fired yet)
         if (me.isHost){
-          const ok = (fugitiveCount === 1) && (seekerCount >= 1);
+          const ok = (game && game.status === "lobby") && (fugitiveCount === 1) && (seekerCount >= 1);
           startBtn.disabled = !ok;
-          startMsg.textContent = ok ? '' : 'Need exactly 1 fugitive and at least 1 seeker.';
+          startMsg.textContent = ok
+            ? 'Ready to start.'
+            : (game && game.status !== "lobby"
+                ? 'Round is live. Use Reset to lobby to re-open roles.'
+                : 'Need exactly 1 fugitive and at least 1 seeker.');
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
+        }
+
+        // update header host name now that we have roster
+        if (game){
+          const hostUid = game.hostUid || null;
+          const hostName = hostUid ? (roster.find(r => r.uid === hostUid)?.displayName || hostUid.slice(0,6)+"…") : "—";
+          const hostLabel = (hostUid === me.uid) ? "You" : hostName;
+          gameTag.textContent = `${game.status === "live" ? "Live" : "Lobby"} • ${code} • Host: ${hostLabel}`;
         }
       });
 
@@ -470,9 +520,11 @@
         location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
       });
 
+      // Start round — only from Lobby
       startBtn.addEventListener('click', async () => {
         if (!me.isHost) return;
-        // Guard: require single fugitive
+        if (!isLobby()){ toast("Round is already live"); return; }
+
         const fugUid = (game && game.fugitiveUid) || null;
         if (!fugUid){ toast("Assign a fugitive first"); return; }
         const seekers = Math.max(0, roster.length - 1);
@@ -508,6 +560,25 @@
         }catch(e){
           console.error(e);
           toast("Failed to start round");
+        }
+      });
+
+      // Reset to Lobby (host only)
+      resetBtn.addEventListener('click', async () => {
+        if (!me.isHost) return;
+        if (!confirm("Reset this round to Lobby and unlock roles?")) return;
+        try{
+          await setDoc(doc(db, "games", code), {
+            status: "lobby",
+            fugitiveUid: null,
+            startsAt: deleteField(),
+            endsAt: deleteField(),
+            revealAt: deleteField()
+          }, { merge:true });
+          toast("Reset to lobby");
+        }catch(e){
+          console.error(e);
+          toast("Failed to reset");
         }
       });
     });
