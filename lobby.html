@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Seekr.run — Lobby</title>
+  <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --ink:#0e1220; --muted:#55627a; --bg:#f6f8fc; --card:#ffffff;
+      --brand:#1e4cff; --accent:#35c18f; --line:#e7ecf3;
+      --good:#1f7a48; --bad:#b00020; --focus:#1e4cff33;
+    }
+    *{ box-sizing:border-box }
+    html, body{ height:100% }
+    body{
+      margin:0; background:var(--bg); color:var(--ink);
+      font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .shell{ max-width:980px; margin:0 auto; padding:20px 16px 40px }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+    .brand{ font-weight:900; font-size:28px; letter-spacing:.6px; color:var(--ink) }
+    .tag{ display:inline-block; font-size:13px; font-weight:600; color:var(--muted); padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line) }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
+    .grid{ display:grid; gap:12px; grid-template-columns: 1fr; }
+    @media (min-width:860px){ .grid{ grid-template-columns: 1fr 1fr; } }
+
+    .sectionTitle{ margin:0 0 8px 0; font-weight:800; font-size:16px }
+    .muted{ color:var(--muted) }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .btn{ appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff; cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35); background:linear-gradient(135deg,#4facfe,#00f2fe); }
+    .btn.secondary{ background:linear-gradient(135deg,#00f2fe,#4facfe); }
+    .btn.ghost{ background:#eef2fa; color:#364d9b; box-shadow:none; border:1px solid var(--line) }
+    .btn.danger{ background:linear-gradient(135deg,#ff6a6a,#ff3b3b) }
+    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a; }
+
+    .list{ display:flex; flex-direction:column; gap:8px; margin-top:8px }
+    .member{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#fff;
+    }
+    .name{ font-weight:600 }
+    .role{
+      display:inline-flex; gap:6px; background:#f7faff; border:1px solid var(--line); border-radius:999px; padding:4px;
+    }
+    .seg{
+      border:0; border-radius:999px; padding:6px 10px; font-weight:700; cursor:pointer; background:transparent; color:#55627a;
+    }
+    .seg.active{ background:#1e4cff; color:#fff; }
+    .info{ font-size:12px; color:var(--muted); margin-top:8px }
+    .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
+    :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
+
+    .dangerNote{ font-size:12px; color:#b00020 }
+    .okNote{ font-size:12px; color:#1f7a48 }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <div class="brand">Seekr.run</div>
+        <div class="tag" id="gameTag">Lobby • Loading…</div>
+      </div>
+      <a href="index.html" class="btn secondary">Home</a>
+    </header>
+
+    <div class="grid">
+      <!-- Left: Invite & Settings -->
+      <section class="card">
+        <h3 class="sectionTitle">Invite</h3>
+        <div class="row">
+          <div>
+            <div id="inviteCode" class="pill mono">CODE</div>
+            <div class="info">Share this code with friends. Everyone joins this lobby.</div>
+          </div>
+          <div class="row" style="gap:8px">
+            <button id="copyCode" class="btn ghost" type="button">Copy code</button>
+            <button id="copyLink" class="btn ghost" type="button">Copy link</button>
+          </div>
+        </div>
+
+        <h3 class="sectionTitle" style="margin-top:16px;">Round settings</h3>
+        <div class="info" id="settingsInfo">Host can tweak duration & intervals on the setup page (demo.html). Lobby reads settings from the game.</div>
+        <ul class="info" style="margin:6px 0 0 16px;">
+          <li>Duration: <span id="infoMinutes">—</span> min</li>
+          <li>Fugitive ping every: <span id="infoPingMinutes">—</span> min</li>
+          <li>Tag distance: <span id="infoTagM">—</span> m</li>
+          <li>Uncertainty: <span id="infoUncM">—</span> m</li>
+        </ul>
+
+        <div id="hostControls" style="margin-top:16px; display:none;">
+          <div class="info">You are the host. Make sure you set the zone + extraction in <a href="demo.html">setup</a> first.</div>
+          <div class="row" style="margin-top:8px;">
+            <button id="startBtn" class="btn" type="button">Start game</button>
+            <button id="openAsHost" class="btn secondary" type="button">Open gameplay</button>
+          </div>
+          <div id="startMsg" class="info"></div>
+        </div>
+      </section>
+
+      <!-- Right: Players -->
+      <section class="card">
+        <h3 class="sectionTitle">Players</h3>
+        <div class="row">
+          <div class="info">Toggle your role below. Only one fugitive allowed.</div>
+          <div class="pill" id="countPill">0 players</div>
+        </div>
+
+        <div id="memberList" class="list" aria-live="polite"></div>
+
+        <div class="row" style="margin-top:12px;">
+          <button id="openGameplay" class="btn secondary" type="button">Open gameplay</button>
+        </div>
+
+        <div id="liveNote" class="dangerNote" style="display:none;margin-top:8px;">
+          This round is already live. You can still join gameplay.
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    // Firebase CDN
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import {
+      getFirestore, doc, setDoc, getDoc, onSnapshot,
+      collection, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHJuv3vZH1dMzLkihl6hNQdlHOQNg728M",
+      authDomain: "seekr-426ff.firebaseapp.com",
+      projectId: "seekr-426ff",
+      storageBucket: "seekr-426ff.firebasestorage.app",
+      messagingSenderId: "703306109182",
+      appId: "1:703306109182:web:afb04af22e974170e555af"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // UI refs
+    const toastEl = document.getElementById('toast');
+    const gameTag = document.getElementById('gameTag');
+    const inviteCodeEl = document.getElementById('inviteCode');
+    const copyCodeBtn = document.getElementById('copyCode');
+    const copyLinkBtn = document.getElementById('copyLink');
+    const infoMinutes = document.getElementById('infoMinutes');
+    const infoPingMinutes = document.getElementById('infoPingMinutes');
+    const infoTagM = document.getElementById('infoTagM');
+    const infoUncM = document.getElementById('infoUncM');
+    const hostControls = document.getElementById('hostControls');
+    const startBtn = document.getElementById('startBtn');
+    const startMsg = document.getElementById('startMsg');
+    const openAsHostBtn = document.getElementById('openAsHost');
+    const memberList = document.getElementById('memberList');
+    const countPill = document.getElementById('countPill');
+    const openGameplayBtn = document.getElementById('openGameplay');
+    const liveNote = document.getElementById('liveNote');
+
+    // State
+    const code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
+    let me = { uid:null, role:null, isHost:false };
+    let game = null;
+    if (!code) {
+      alert("Missing game code. Open with ?code=ABC123");
+      location.href = "index.html";
+    }
+    inviteCodeEl.textContent = code;
+    gameTag.textContent = `Lobby • ${code}`;
+
+    function toast(t){
+      toastEl.textContent = t;
+      toastEl.style.display = 'block';
+      clearTimeout(toastEl._t);
+      toastEl._t = setTimeout(() => toastEl.style.display = 'none', 2000);
+    }
+
+    signInAnonymously(auth).catch(console.error);
+    onAuthStateChanged(auth, async user => {
+      if (!user) return;
+      me.uid = user.uid;
+
+      // Ensure game doc exists, set status:lobby if new. First writer becomes host.
+      const gameRef = doc(db, "games", code);
+      const gSnap = await getDoc(gameRef);
+      if (!gSnap.exists()) {
+        await setDoc(gameRef, {
+          code, status:"lobby", createdAt: serverTimestamp()
+        }, { merge:true });
+      }
+      // If no hostUid yet, claim it
+      const gSnap2 = await getDoc(gameRef);
+      const gData = gSnap2.data() || {};
+      if (!gData.hostUid) {
+        try {
+          await setDoc(gameRef, { hostUid: me.uid }, { merge:true });
+        } catch {}
+      }
+
+      // Ensure I have a membership with default role seeker
+      const memberRef = doc(db, "games", code, "members", me.uid);
+      const mSnap = await getDoc(memberRef);
+      if (!mSnap.exists()) {
+        await setDoc(memberRef, { role:"seeker", createdAt: serverTimestamp() }, { merge:true });
+      }
+
+      // Wire live listeners
+      onSnapshot(gameRef, s => {
+        if (!s.exists()) return;
+        game = s.data();
+        const rules = game.rules || {};
+        const lobbyCfg = game.lobbyConfig || {};
+
+        me.isHost = (game.hostUid === me.uid);
+        hostControls.style.display = me.isHost ? 'block' : 'none';
+        gameTag.textContent = `${game.status === "live" ? "Live" : "Lobby"} • ${code}`;
+        liveNote.style.display = game.status === "live" ? 'block' : 'none';
+
+        infoMinutes.textContent = Number(rules.game_minutes ?? 30);
+        infoPingMinutes.textContent = Number(rules.ping_minutes ?? 5);
+        infoTagM.textContent = Number(rules.tag_meters ?? 5);
+        infoUncM.textContent = Number(lobbyCfg.uncertaintyM ?? rules.uncertainty_m ?? 50);
+      });
+
+      // Render member list (everyone in lobby can see the roster)
+      const qMembers = query(collection(db, "games", code, "members"), orderBy("createdAt", "asc"));
+      onSnapshot(qMembers, snap => {
+        const items = [];
+        let fugitiveCount = 0, seekerCount = 0;
+        snap.forEach(docSnap => {
+          const d = docSnap.data() || {};
+          const uid = docSnap.id;
+          const role = d.role || "seeker";
+          if (role === "fugitive") fugitiveCount++; else seekerCount++;
+
+          const row = document.createElement('div');
+          row.className = 'member';
+
+          const left = document.createElement('div');
+          left.innerHTML = `<div class="name mono">${uid.slice(0,6)}…</div><div class="info">joined</div>`;
+          row.appendChild(left);
+
+          const right = document.createElement('div');
+          if (uid === me.uid) {
+            // my role toggle
+            const wrap = document.createElement('div');
+            wrap.className = 'role';
+            const makeSeg = (label, value) => {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'seg' + (role === value ? ' active' : '');
+              b.textContent = label;
+              b.addEventListener('click', async () => {
+                if (value === "fugitive") {
+                  if (fugitiveCount >= 1 && role !== "fugitive") {
+                    toast("Only one fugitive allowed");
+                    return;
+                  }
+                }
+                await setDoc(doc(db, "games", code, "members", me.uid), { role: value }, { merge:true });
+              });
+              return b;
+            };
+            wrap.appendChild(makeSeg('Fugitive', 'fugitive'));
+            wrap.appendChild(makeSeg('Seeker', 'seeker'));
+            right.appendChild(wrap);
+          } else {
+            // show their role
+            const tag = document.createElement('div');
+            tag.className = 'pill';
+            tag.textContent = role === 'fugitive' ? 'Fugitive' : 'Seeker';
+            right.appendChild(tag);
+          }
+          row.appendChild(right);
+          items.push(row);
+        });
+        memberList.replaceChildren(...items);
+        const total = fugitiveCount + seekerCount;
+        countPill.textContent = `${total} player${total===1?'':'s'} — ${fugitiveCount} fugitive • ${seekerCount} seeker${seekerCount===1?'':'s'}`;
+
+        // Start button enable state (host)
+        if (me.isHost) {
+          const ok = (fugitiveCount >= 1) && (seekerCount >= 1);
+          startBtn.disabled = !ok;
+          startMsg.textContent = ok ? '' : 'Need at least 1 fugitive and 1 seeker to start.';
+          startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
+        }
+      });
+
+      // Buttons
+      copyCodeBtn.addEventListener('click', async () => {
+        try{ await navigator.clipboard.writeText(code); toast('Code copied'); } catch {}
+      });
+      copyLinkBtn.addEventListener('click', async () => {
+        const url = `${location.origin}/lobby.html?code=${encodeURIComponent(code)}`;
+        try{ await navigator.clipboard.writeText(url); toast('Link copied'); } catch {}
+      });
+      openGameplayBtn.addEventListener('click', () => {
+        const myRole = game && game.members && game.members[me.uid]?.role ? game.members[me.uid].role : null; // not used; we read from /members
+        // Safer: ask Firestore for my latest role?
+        const url = `gameplay.html?code=${encodeURIComponent(code)}`;
+        // role selection overlay in gameplay will pick up /members/{uid}.role
+        location.href = url;
+      });
+      openAsHostBtn.addEventListener('click', () => {
+        location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
+      });
+
+      startBtn.addEventListener('click', async () => {
+        if (!me.isHost) return;
+        // compute times if missing, otherwise preserve existing
+        const now = Date.now();
+        const rules = (game && game.rules) || {};
+        const mins = Number(rules.game_minutes ?? 30);
+        const durMs = Math.max(1, mins) * 60 * 1000;
+        const startsAt = (game && game.startsAt && typeof game.startsAt.toMillis === "function") ? null : new Date(now + 5000); // 5s arm delay if not set
+        const endsAt   = (game && game.endsAt   && typeof game.endsAt.toMillis   === "function") ? null : new Date(now + 5000 + durMs);
+        let revealAt = null;
+        if (game && game.revealAt && typeof game.revealAt.toMillis === "function") {
+          revealAt = null; // keep existing
+        } else if (startsAt && endsAt) {
+          const total = endsAt.getTime() - startsAt.getTime();
+          revealAt = new Date(endsAt.getTime() - Math.floor(total * 0.20)); // reveal at last 20%
+        }
+
+        try{
+          await setDoc(doc(db, "games", code), {
+            status: "live",
+            ...(startsAt ? { startsAt } : {}),
+            ...(endsAt   ? { endsAt }   : {}),
+            ...(revealAt ? { revealAt } : {}),
+          }, { merge:true });
+          toast("Round started");
+          startMsg.textContent = "Starting… switch to Gameplay";
+          startMsg.style.color = 'var(--good)';
+        }catch(e){
+          console.error(e);
+          toast("Failed to start round");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
