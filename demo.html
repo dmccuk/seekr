@@ -558,29 +558,28 @@
             code: cfg.code,
             createdAt: serverTimestamp(),
             status: 'live',
-            startsAt: new Date(gameStartMs),   // NEW (handy, even if not strictly required)
+            startsAt: new Date(gameStartMs),
             endsAt:   new Date(gameEndMs),
             revealAt: new Date(revealAtMs),
-      
-            // Source for uncertainty size in gameplay.html
+          
+            // Source for uncertainty size in gameplay
             lobbyConfig: { uncertaintyM: cfg.uncertainty_m },
-      
-            // (Optional but nice to have – uncomment if you want these persisted too)
-            // zone: {
-            //   center: { lat: cfg.center.lat, lng: cfg.center.lng },
-            //   radius_km: cfg.radius_km
-            // },
-            // rules: {
-            //   game_minutes: cfg.game_minutes,
-            //   tag_meters: cfg.tag_meters,
-            //   ping_minutes: cfg.ping_minutes,
-            //   uncertainty_m: cfg.uncertainty_m,
-            //   actions: cfg.actions,
-            //   tokens_start: cfg.tokens_start,
-            //   action_cost: cfg.action_cost,
-            //   reveal_pct: cfg.reveal_pct
-            // }
+          
+            // NEW, persist zone so phones can draw it
+            zone: {
+              center: { lat: cfg.center.lat, lng: cfg.center.lng },
+              radius_km: cfg.radius_km
+            },
+          
+            // Helpful to keep together
+            rules: {
+              game_minutes: cfg.game_minutes,
+              tag_meters:   cfg.tag_meters,
+              ping_minutes: cfg.ping_minutes,
+              uncertainty_m: cfg.uncertainty_m
+            }
           }, { merge:true });
+
       
           // Keep the secret extraction in a private subdoc
           await setDoc(doc(db, 'games', cfg.code, 'private', 'secret'), {
