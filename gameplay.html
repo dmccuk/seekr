@@ -170,8 +170,9 @@
     function startGeoWatch(){
       if (geoWatchId) return;
     
-      if (location.protocol !== 'https:'){
-        toast('Location needs HTTPS (your domain is fine).');
+      const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+      if (!window.isSecureContext && !isLocalhost) {
+        toast('Location needs HTTPS or localhost.');
         return;
       }
       if (!('geolocation' in navigator)){
