@@ -110,7 +110,7 @@
           <div class="info" id="hostLine">You are the host.</div>
           <div class="row" style="margin-top:8px; gap:8px;">
             <button id="startBtn" class="btn" type="button" disabled>Start game</button>
-            <button id="openAsHost" class="btn secondary" type="button">Join map (doesn’t start)</button>
+            <button id="openAsHost" class="btn secondary" type="button">Join map</button>
             <button id="resetBtn" class="btn danger" type="button" style="display:none;">Reset to lobby</button>
           </div>
           <div id="startMsg" class="info"></div>
@@ -131,11 +131,11 @@
         <div id="memberList" class="list" aria-live="polite"></div>
 
         <div class="row" style="margin-top:12px;">
-          <button id="openGameplay" class="btn secondary" type="button">Join map (doesn’t start)</button>
+          <button id="openGameplay" class="btn secondary" type="button">Join map</button>
         </div>
 
         <div id="liveNote" class="dangerNote" style="display:none;margin-top:8px;">
-          This round is live, roles are locked. You can still open the map.
+          This round is live; roles are locked. You can still open the map.
         </div>
       </section>
     </div>
@@ -368,18 +368,16 @@
         const name = fugUid ? (roster.find(r => r.uid === fugUid)?.displayName || fugUid.slice(0,6)+"…") : "—";
         fugitiveSlotEl.textContent = `Fugitive: ${name}`;
 
-        // Host start gating: 1 fugitive + >=1 seeker, only in Lobby
+        // Host start gating: 1 fugitive + >=1 seeker (allow start even if status shows live)
         const total = roster.length;
         const fugitiveCount = fugUid ? 1 : 0;
         const seekers = Math.max(0, total - fugitiveCount);
         if (me.isHost){
-          const ok = (game.status === "lobby") && (fugitiveCount === 1) && (seekers >= 1);
+          const ok = (fugitiveCount === 1) && (seekers >= 1);
           startBtn.disabled = !ok;
           startMsg.textContent = ok
-            ? 'Ready to start.'
-            : (game.status !== "lobby"
-                ? 'Round is live. Use Reset to lobby to re-open roles.'
-                : 'Need exactly 1 fugitive and at least 1 seeker.');
+            ? (game.status === "lobby" ? 'Ready to start.' : 'Ready — pressing Start will (re)arm timers and keep the round live.')
+            : 'Need exactly 1 fugitive and at least 1 seeker.';
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
           hostLine.textContent = me.isHost ? 'You are the host.' : '';
         }
@@ -400,68 +398,68 @@
           const isFugitive = (fugUid && fugUid === m.uid) || m.role === "fugitive";
           const isHostRow = game && game.hostUid === m.uid;
 
-          const row = document.createElement('div');
-          row.className = 'member';
+        const row = document.createElement('div');
+        row.className = 'member';
 
-          const left = document.createElement('div');
-          left.className = 'left';
-          left.innerHTML = `
-            <div class="name">
-              ${name}
-              ${isHostRow ? '<span class="hostBadge" title="Host">👑 Host</span>' : ''}
-              ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}
-            </div>
-            <div class="subtle mono">#${m.uid.slice(0,6)}</div>
-          `;
-          row.appendChild(left);
+        const left = document.createElement('div');
+        left.className = 'left';
+        left.innerHTML = `
+          <div class="name">
+            ${name}
+            ${isHostRow ? '<span class="hostBadge" title="Host">👑 Host</span>' : ''}
+            ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}
+          </div>
+          <div class="subtle mono">#${m.uid.slice(0,6)}</div>
+        `;
+        row.appendChild(left);
 
-          const right = document.createElement('div');
-          if (isMe){
-            // my role controls (locked when not in Lobby)
-            const wrap = document.createElement('div');
-            wrap.className = 'role';
+        const right = document.createElement('div');
+        if (isMe){
+          // my role controls (locked when not in Lobby)
+          const wrap = document.createElement('div');
+          wrap.className = 'role';
 
-            const btnF = document.createElement('button');
-            btnF.type = 'button';
-            btnF.className = 'seg' + (isFugitive ? ' active' : '');
-            btnF.textContent = 'Fugitive';
-            btnF.disabled = roundLocked || (!isFugitive && !!fugUid); // taken or locked
-            if (roundLocked) btnF.title = "Roles are locked while the round is live";
-            btnF.addEventListener('click', async () => {
-              if (isFugitive) return;
-              await claimFugitive(me.uid);
-            });
+          const btnF = document.createElement('button');
+          btnF.type = 'button';
+          btnF.className = 'seg' + (isFugitive ? ' active' : '');
+          btnF.textContent = 'Fugitive';
+          btnF.disabled = roundLocked || (!isFugitive && !!fugUid); // taken or locked
+          if (roundLocked) btnF.title = "Roles are locked while the round is live";
+          btnF.addEventListener('click', async () => {
+            if (isFugitive) return;
+            await claimFugitive(me.uid);
+          });
 
-            const btnS = document.createElement('button');
-            btnS.type = 'button';
-            btnS.className = 'seg' + (!isFugitive ? ' active' : '');
-            btnS.textContent = 'Seeker';
-            btnS.disabled = roundLocked; // cannot change while live
-            if (roundLocked) btnS.title = "Roles are locked while the round is live";
-            btnS.addEventListener('click', async () => {
-              if (!isFugitive) return;
-              await releaseFugitive(me.uid);
-            });
+          const btnS = document.createElement('button');
+          btnS.type = 'button';
+          btnS.className = 'seg' + (!isFugitive ? ' active' : '');
+          btnS.textContent = 'Seeker';
+          btnS.disabled = roundLocked; // cannot change while live
+          if (roundLocked) btnS.title = "Roles are locked while the round is live";
+          btnS.addEventListener('click', async () => {
+            if (!isFugitive) return;
+            await releaseFugitive(me.uid);
+          });
 
-            wrap.appendChild(btnF);
-            wrap.appendChild(btnS);
-            right.appendChild(wrap);
-          } else {
-            // show role pill resolved by the slot
-            const tag = document.createElement('div');
-            tag.className = 'pill';
-            tag.textContent = isFugitive ? 'Fugitive' : 'Seeker';
-            right.appendChild(tag);
-          }
-          row.appendChild(right);
-          items.push(row);
+          wrap.appendChild(btnF);
+          wrap.appendChild(btnS);
+          right.appendChild(wrap);
+        } else {
+          // show role pill resolved by the slot
+          const tag = document.createElement('div');
+          tag.className = 'pill';
+          tag.textContent = isFugitive ? 'Fugitive' : 'Seeker';
+          right.appendChild(tag);
+        }
+        row.appendChild(right);
+        items.push(row);
 
-          // wire rename button after insert
-          setTimeout(() => {
-            const rn = document.getElementById('rn_'+m.uid);
-            if (rn) rn.addEventListener('click', renameMe);
-          }, 0);
-        });
+        // wire rename button after insert
+        setTimeout(() => {
+          const rn = document.getElementById('rn_'+m.uid);
+          if (rn) rn.addEventListener('click', renameMe);
+        }, 0);
+      });
 
         memberList.replaceChildren(...items);
 
@@ -478,15 +476,13 @@
           fugitiveSlotEl.textContent = `Fugitive: ${name2}`;
         }
 
-        // refresh Start gating (in case game listener hasn't fired yet)
+        // refresh Start gating
         if (me.isHost){
-          const ok = (game && game.status === "lobby") && (fugitiveCount === 1) && (seekerCount >= 1);
+          const ok = (fugitiveCount === 1) && (seekerCount >= 1);
           startBtn.disabled = !ok;
           startMsg.textContent = ok
-            ? 'Ready to start.'
-            : (game && game.status !== "lobby"
-                ? 'Round is live. Use Reset to lobby to re-open roles.'
-                : 'Need exactly 1 fugitive and at least 1 seeker.');
+            ? (game && game.status === "lobby" ? 'Ready to start.' : 'Ready — pressing Start will (re)arm timers and keep the round live.')
+            : 'Need exactly 1 fugitive and at least 1 seeker.';
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
         }
 
@@ -520,10 +516,9 @@
         location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
       });
 
-      // Start round — only from Lobby
+      // Start round — (re)arm even if status currently shows live
       startBtn.addEventListener('click', async () => {
         if (!me.isHost) return;
-        if (!isLobby()){ toast("Round is already live"); return; }
 
         const fugUid = (game && game.fugitiveUid) || null;
         if (!fugUid){ toast("Assign a fugitive first"); return; }
@@ -554,8 +549,8 @@
             ...(endsAt   ? { endsAt }   : {}),
             ...(revealAt ? { revealAt } : {}),
           }, { merge:true });
-          toast("Round started");
-          startMsg.textContent = "Starting… switch to Gameplay";
+          toast("Round armed — switching to Gameplay");
+          startMsg.textContent = "Starting… open the map";
           startMsg.style.color = 'var(--good)';
         }catch(e){
           console.error(e);
