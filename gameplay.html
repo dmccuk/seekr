@@ -154,11 +154,24 @@
     onAuthStateChanged(auth, async user => {
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
-
-      // Show join overlay if we have not picked a role
+    
+      const urlParams = new URL(location.href).searchParams;
+      const roleHint = urlParams.get('as'); // "fugitive" or "seeker"
+    
       const memberRef = doc(db, "games", code, "members", user.uid);
       const memberSnap = await getDoc(memberRef);
       role = memberSnap.exists() ? (memberSnap.data().role || null) : null;
+    
+      // If no role stored yet and we have a valid hint, auto-join and skip overlay
+      if (!role && (roleHint === "fugitive" || roleHint === "seeker")) {
+        role = roleHint;
+        await setDoc(memberRef, { role, tokens: 500 }, { merge: true });
+        toast(`Joined as ${role}`);
+        afterJoin();
+        return;
+      }
+    
+      // Otherwise show the picker overlay
       if (!role) {
         join.style.display = 'flex';
         join.setAttribute('aria-hidden', 'false');
@@ -168,10 +181,13 @@
         document.getElementById('btnJoinS').onclick = async () => {
           role = "seeker"; await setDoc(memberRef, { role, tokens: 500 }, { merge: true }); afterJoin();
         };
-      } else {
-        afterJoin();
+        return;
       }
+    
+      // Already had a role
+      afterJoin();
     });
+    
     signInAnonymously(auth).catch(console.error);
 
     let revealToastShown = false;
