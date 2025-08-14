@@ -545,7 +545,9 @@
       gameStartMs = Date.now();
       const durMs = Math.max(1, cfg.game_minutes) * 60 * 1000;
       gameEndMs = gameStartMs + durMs;
-      revealAtMs = gameStartMs + durMs * (1 - cfg.reveal_pct / 100);
+      
+      // Force a quick reveal for testing, 5 percent after start
+      revealAtMs = gameStartMs + Math.floor(durMs * 0.05);
 
       // Persist to Firestore if available, in the shape gameplay.html expects
       if (window.seekr && window.seekr.db){
