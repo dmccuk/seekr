@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Seekr.run - Gameplay demo</title>
-  <meta name="description" content="Seekr.run gameplay demo, set a zone, configure rules, get a dummy code, and see how secret extraction reveals late." />
+  <meta name="description" content="Seekr.run gameplay demo, set a zone, configure rules, get a code, and see how secret extraction reveals late." />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
 
   <!-- Fonts -->
@@ -114,7 +114,7 @@
     .whatsapp-btn:hover{ background:#20b358 }
     .whatsapp-btn svg{ width:22px; height:22px; display:block; fill:currentColor }
 
-    .footnote{ margin-top:8px; font-size:12px; color:#54627a }
+    .footnote{ margin-top:8px; font-size:12px; color:var(--muted) }
 
     /* Onboarding overlay */
     .overlay{
@@ -252,9 +252,7 @@
             <div id="code" class="code">AAAAAA</div>
             <button id="btnCode" class="btn" type="button">Generate</button>
             <button id="btnShareWA" class="whatsapp-btn" type="button" title="Share on WhatsApp" aria-label="Share on WhatsApp">
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <path d="M19.11 17.39c-.3-.15-1.77-.87-2.05-.97-.28-.1-.49-.15-.7.15s-.8.97-.98 1.17c-.18.2-.36.22-.66.07-.3-.15-1.28-.47-2.44-1.5-.9-.8-1.52-1.78-1.7-2.08-.18-.3-.02-.46.13-.61.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.7-1.69-.96-2.3-.25-.6-.51-.52-.7-.53l-.6-.01c-.2 0 -.52.07 -.79.37 -.27 .3 -1.04 1.02 -1.04 2.49 s1.07 2.89 1.22 3.09 c.15 .2 2.1 3.2 5.08 4.49 .71 .31 1.27 .5 1.7 .64 .71 .23 1.36 .2 1.87 .12 .57 -.09 1.77 -.72 2.03 -1.42 .25 -.7 .25 -1.29 .18 -1.42 -.07 -.13 -.27 -.2 -.57 -.35zM16 3.1 c-7.12 0 -12.9 5.78 -12.9 12.9 0 2.28 .6 4.51 1.75 6.47 L3 29 l6.74 -1.77 a12.83 12.83 0 0 0 6.26 1.6 c7.12 0 12.9 -5.78 12.9 -12.9 S23.12 3.1 16 3.1 z" fill="currentColor"/>
-              </svg>
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M19.11 17.39c-.3-.15-1.77-.87-2.05-.97-.28-.1-.49-.15-.7.15s-.8.97-.98 1.17c-.18.2-.36.22-.66.07-.3-.15-1.28-.47-2.44-1.5-.9-.8-1.52-1.78-1.7-2.08-.18-.3-.02-.46.13-.61.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.7-1.69-.96-2.3-.25-.6-.51-.52-.7-.53l-.6-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.2 5.08 4.49.71.31 1.27.5 1.7.64.71.23 1.36.2 1.87.12.57-.09 1.77-.72 2.03-1.42.25-.7.25-1.29.18-1.42-.07-.13-.27-.2-.57-.35zM16 3.1c-7.12 0-12.9 5.78-12.9 12.9 0 2.28.6 4.51 1.75 6.47L3 29l6.74-1.77a12.83 12.83 0 0 0 6.26 1.6c7.12 0 12.9-5.78 12.9-12.9S23.12 3.1 16 3.1zm0 23.36c-2.15 0-4.25-.58-6.08-1.68l-.44-.26-4.02 1.06 1.08-3.92-.28-.45a10.77 10.77 0 1 1 9.74 5.25z" fill="currentColor"/></svg>
             </button>
           </div>
 
@@ -265,6 +263,16 @@
           <div id="timerWrap" class="footnote">
             <div id="timeLeft" class="pill">Time remaining 00:00</div>
             <div id="progress"><div id="progressFill"></div></div>
+          </div>
+
+          <!-- NEW: Launch gameplay links -->
+          <div id="launchWrap" class="stack" style="display:none; margin-top:10px;">
+            <div class="muted">Launch gameplay (open on phones):</div>
+            <div class="row">
+              <a id="linkFugitive" class="btn" href="#" target="_blank" rel="noopener">Open Fugitive view</a>
+              <a id="linkSeeker" class="btn secondary" href="#" target="_blank" rel="noopener">Open Seeker view</a>
+            </div>
+            <div class="footnote">Share these links (or the code) with friends.</div>
           </div>
 
           <div class="footnote">Questions? <a href="index.html#faq">Check the FAQ</a>.</div>
@@ -293,7 +301,7 @@
   <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- MAP + DEMO LOGIC (vanilla JS) -->
+  <!-- MAP + DEMO LOGIC -->
   <script>
     // Map setup
     let map, centerMarker, areaCircle, uncertaintyCircle, extractMarker;
@@ -452,25 +460,29 @@
     const puDecoy = document.getElementById('puDecoy');
     const puReveal = document.getElementById('puReveal');
 
-    // Presets
+    const launchWrap = document.getElementById('launchWrap');
+    const linkFugitive = document.getElementById('linkFugitive');
+    const linkSeeker = document.getElementById('linkSeeker');
+
+    // Presets (fixed id refs)
     document.getElementById('presetHunt').addEventListener('click', () => {
       gameLen.value = 25; tagDist.value = 8; pingMins.value = 3;
       puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
-      radiusKm.value = 0.8; uncertaintyM.value = 50;
+      radiusInput.value = 0.8; uncertaintyInput.value = 50;
       radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
       nudge('Fugitive Hunt preset applied');
     });
     document.getElementById('presetTeam').addEventListener('click', () => {
       gameLen.value = 40; tagDist.value = 10; pingMins.value = 4;
       puDelay.checked = true; puDecoy.checked = false; puReveal.checked = true;
-      radiusKm.value = 1.2; uncertaintyM.value = 60;
+      radiusInput.value = 1.2; uncertaintyInput.value = 60;
       radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
       nudge('Team Battle preset applied');
     });
     document.getElementById('presetLarge').addEventListener('click', () => {
       gameLen.value = 60; tagDist.value = 12; pingMins.value = 5;
       puDelay.checked = true; puDecoy.checked = true; puReveal.checked = false;
-      radiusKm.value = 2.0; uncertaintyM.value = 75;
+      radiusInput.value = 2.0; uncertaintyInput.value = 75;
       radiusInput.dispatchEvent(new Event('input')); uncertaintyInput.dispatchEvent(new Event('input'));
       nudge('Large Zone preset applied');
     });
@@ -494,7 +506,7 @@
       updateUrlParam('code', codeEl.textContent.trim());
     });
 
-    // Start demo, reveal at 20 percent remaining
+    // Start demo, reveal at 20% remaining + write Firestore + show role launch buttons
     btnStart.addEventListener('click', async () => {
       const cfg = {
         center: centerMarker.getLatLng(),
@@ -502,7 +514,6 @@
         game_minutes: Number(gameLen.value),
         tag_meters: Number(tagDist.value),
         ping_minutes: Number(pingMins.value),
-        // Use this as the source for the ping/uncertainty area size
         uncertainty_m: Number(uncertaintyInput.value),
         actions: {
           delay: puDelay.checked,
@@ -517,7 +528,7 @@
       };
       if(!codeEl.textContent.trim()){ codeEl.textContent = cfg.code; }
 
-      // If the host did not press Set extraction point, auto place now
+      // If host didn’t press Set extraction, auto-place it now
       if(!secretPoint){
         const radiusMeters = cfg.radius_km * 1000;
         secretPoint = (function(center, m){
@@ -530,84 +541,60 @@
         showToast('Extraction auto set. Location reveals to fugitive at 20 percent time remaining.');
       }
 
-      // Timers
+      // Local timers
       gameStartMs = Date.now();
       const durMs = Math.max(1, cfg.game_minutes) * 60 * 1000;
       gameEndMs = gameStartMs + durMs;
       revealAtMs = gameStartMs + durMs * (1 - cfg.reveal_pct / 100);
 
-      // Persist to Firestore if available
+      // Persist to Firestore if available, in the shape gameplay.html expects
       if (window.seekr && window.seekr.db){
         try{
           const { db, doc, setDoc, serverTimestamp } = window.seekr;
           const gameRef = doc(db, 'games', cfg.code);
+
+          // top-level fields gameplay.html reads
           await setDoc(gameRef, {
             code: cfg.code,
             createdAt: serverTimestamp(),
             status: 'live',
-            zone: {
-              center: { lat: cfg.center.lat, lng: cfg.center.lng },
-              radius_km: cfg.radius_km
-            },
-            rules: {
-              game_minutes: cfg.game_minutes,
-              tag_meters: cfg.tag_meters,
-              ping_minutes: cfg.ping_minutes,
-              uncertainty_m: cfg.uncertainty_m,
-              actions: cfg.actions,
-              tokens_start: cfg.tokens_start,
-              action_cost: cfg.action_cost,
-              reveal_pct: cfg.reveal_pct
-            },
-            secretExtraction: { lat: secretPoint.lat, lng: secretPoint.lng }, // NOTE: stored here for the demo
-            revealSchedule: {
-              startAt: gameStartMs,
-              endAt: gameEndMs,
-              revealAt: revealAtMs
-            }
+            endsAt: new Date(gameEndMs),
+            revealAt: new Date(revealAtMs),
+            lobbyConfig: { uncertaintyM: cfg.uncertainty_m }
           }, { merge:true });
+
+          // write secret extraction location to /private/secret
+          await setDoc(doc(db, 'games', cfg.code, 'private', 'secret'), {
+            lat: secretPoint.lat, lng: secretPoint.lng
+          }, { merge:true });
+
           console.log('Saved game to Firestore:', cfg.code);
         }catch(err){
           console.warn('Firestore save failed (demo can still run locally):', err);
         }
       }
 
-      // Start ticking
+      // Start ticking UI
       if(tickId){ clearInterval(tickId); }
       timerWrap.style.display = 'block';
       tick();
       tickId = setInterval(tick, 1000);
 
-      console.log('Demo config', cfg);
-      statusEl.textContent = 'Demo round started, code ' + cfg.code + ', seekers get pings every ' + cfg.ping_minutes + ' minutes';
+      statusEl.textContent = 'Demo round started, code ' + cfg.code + '. Launch a role below.';
       statusEl.style.color = 'var(--good)';
 
-      async function tick(){
+      function tick(){
         const now = Date.now();
         const remaining = Math.max(0, gameEndMs - now);
         timeLeft.textContent = 'Time remaining ' + fmtTime(remaining);
         const progress = 100 * (1 - remaining / (gameEndMs - gameStartMs));
         progressFill.style.width = progress.toFixed(1) + '%';
 
-        // Reveal when threshold reached, show on map to simulate fugitive view
         if(!extractMarker && now >= revealAtMs && secretPoint){
           addExtractionMarker(secretPoint);
           statusEl.textContent = 'Extraction revealed for fugitives, seekers are notified but do not see the location';
           statusEl.style.color = '#364d9b';
           showToast('Extraction revealed to fugitive. Get within 10 meters to win.');
-
-          // Mark reveal in Firestore if available
-          if (window.seekr && window.seekr.db){
-            try{
-              const { db, doc, updateDoc, serverTimestamp } = window.seekr;
-              await updateDoc(doc(db, 'games', codeEl.textContent.trim()), {
-                extractionRevealed: true,
-                extractionRevealedAt: serverTimestamp()
-              });
-            }catch(err){
-              console.warn('Failed to flag extraction reveal in Firestore (ok in demo):', err);
-            }
-          }
         }
 
         if(remaining === 0){
@@ -617,6 +604,15 @@
           statusEl.style.color = 'var(--bad)';
         }
       }
+
+      // Build role links and show the launch area
+      const base = new URL('gameplay.html', window.location.href);
+      base.searchParams.set('code', cfg.code);
+      const fug = new URL(base); fug.searchParams.set('as', 'fugitive');
+      const seek = new URL(base); seek.searchParams.set('as', 'seeker');
+      linkFugitive.href = fug.toString();
+      linkSeeker.href = seek.toString();
+      launchWrap.style.display = 'grid';
     });
 
     // WhatsApp share, include code and key settings
@@ -690,7 +686,7 @@
     import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // Your Firebase config
+    // Your Firebase config (public client config is OK to commit)
     const firebaseConfig = {
       apiKey: "AIzaSyAHJuv3vZH1dMzLkihl6hNQdlHOQNg728M",
       authDomain: "seekr-426ff.firebaseapp.com",
