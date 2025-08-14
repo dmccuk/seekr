@@ -34,11 +34,12 @@
 
     .sectionTitle{ margin:0 0 8px 0; font-weight:800; font-size:16px }
     .muted{ color:var(--muted) }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .btn{ appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff; cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35); background:linear-gradient(135deg,#4facfe,#00f2fe); }
     .btn.secondary{ background:linear-gradient(135deg,#00f2fe,#4facfe); }
     .btn.ghost{ background:#eef2fa; color:#364d9b; box-shadow:none; border:1px solid var(--line) }
     .btn.danger{ background:linear-gradient(135deg,#ff6a6a,#ff3b3b) }
+    .btn.sm{ padding:6px 10px; font-size:12px; border-radius:10px }
     .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a; }
 
     .list{ display:flex; flex-direction:column; gap:8px; margin-top:8px }
@@ -46,7 +47,8 @@
       display:flex; align-items:center; justify-content:space-between; gap:12px;
       border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#fff;
     }
-    .name{ font-weight:600 }
+    .name{ font-weight:700 }
+    .subtle{ font-size:12px; color:var(--muted) }
     .role{
       display:inline-flex; gap:6px; background:#f7faff; border:1px solid var(--line); border-radius:999px; padding:4px;
     }
@@ -54,6 +56,8 @@
       border:0; border-radius:999px; padding:6px 10px; font-weight:700; cursor:pointer; background:transparent; color:#55627a;
     }
     .seg.active{ background:#1e4cff; color:#fff; }
+    .seg[disabled]{ opacity:.45; cursor:not-allowed }
+
     .info{ font-size:12px; color:var(--muted); margin-top:8px }
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
@@ -100,7 +104,7 @@
         <div id="hostControls" style="margin-top:16px; display:none;">
           <div class="info">You are the host. Make sure you set the zone + extraction in <a href="demo.html">setup</a> first.</div>
           <div class="row" style="margin-top:8px;">
-            <button id="startBtn" class="btn" type="button">Start game</button>
+            <button id="startBtn" class="btn" type="button" disabled>Start game</button>
             <button id="openAsHost" class="btn secondary" type="button">Open gameplay</button>
           </div>
           <div id="startMsg" class="info"></div>
@@ -110,8 +114,11 @@
       <!-- Right: Players -->
       <section class="card">
         <h3 class="sectionTitle">Players</h3>
-        <div class="row">
-          <div class="info">Toggle your role below. Only one fugitive allowed.</div>
+        <div class="row" style="align-items:flex-end;">
+          <div>
+            <div class="info">Pick a codename and toggle your role. Only one fugitive can be active.</div>
+            <div id="fugitiveSlot" class="subtle" style="margin-top:4px;">Fugitive: —</div>
+          </div>
           <div class="pill" id="countPill">0 players</div>
         </div>
 
@@ -136,7 +143,7 @@
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import {
       getFirestore, doc, setDoc, getDoc, onSnapshot,
-      collection, query, orderBy, serverTimestamp
+      collection, query, orderBy, serverTimestamp, runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -169,17 +176,20 @@
     const countPill = document.getElementById('countPill');
     const openGameplayBtn = document.getElementById('openGameplay');
     const liveNote = document.getElementById('liveNote');
+    const fugitiveSlotEl = document.getElementById('fugitiveSlot');
 
     // State
     const code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
-    let me = { uid:null, role:null, isHost:false };
-    let game = null;
     if (!code) {
       alert("Missing game code. Open with ?code=ABC123");
       location.href = "index.html";
     }
     inviteCodeEl.textContent = code;
     gameTag.textContent = `Lobby • ${code}`;
+
+    let me = { uid:null, isHost:false, displayName:null };
+    let game = null;
+    let roster = []; // [{uid, role, displayName}...]
 
     function toast(t){
       toastEl.textContent = t;
@@ -188,36 +198,118 @@
       toastEl._t = setTimeout(() => toastEl.style.display = 'none', 2000);
     }
 
+    // Simple codename generator
+    const ADJ = ["Neon","Swift","Silent","Crimson","Lucky","Shadow","Wild","Nimble","Iron","Delta","Atomic","Echo","Fuzzy","Turbo","Mellow","Golden","Cosmic","Feral","Frost","Quantum"];
+    const NOUN = ["Falcon","Fox","Badger","Panther","Viper","Raven","Otter","Wolf","Jaguar","Hawk","Lynx","Cobra","Moose","Tiger","Panda","Eagle","Bison","Drake","Mantis","Orca"];
+    function makeCodename(){
+      const a = ADJ[Math.floor(Math.random()*ADJ.length)];
+      const n = NOUN[Math.floor(Math.random()*NOUN.length)];
+      const num = Math.floor(Math.random()*900)+100; // 100-999
+      return `${a} ${n} ${num}`;
+    }
+
+    function sanitizeName(s){
+      return String(s||"").replace(/\s+/g, " ").trim().slice(0, 26);
+    }
+
+    async function ensureGameAndMembership(uid){
+      const gameRef = doc(db, "games", code);
+      const memberRef = doc(db, "games", code, "members", uid);
+
+      // Create game if missing, and capture host if empty
+      const gSnap = await getDoc(gameRef);
+      if (!gSnap.exists()){
+        await setDoc(gameRef, { code, status:"lobby", createdAt: serverTimestamp() }, { merge:true });
+      }
+      const gSnap2 = await getDoc(gameRef);
+      const g = gSnap2.data() || {};
+      if (!g.hostUid){
+        try{ await setDoc(gameRef, { hostUid: uid }, { merge:true }); }catch{}
+      }
+
+      // Create member if missing with default seeker + codename
+      const mSnap = await getDoc(memberRef);
+      if (!mSnap.exists()){
+        await setDoc(memberRef, {
+          role: "seeker",
+          displayName: makeCodename(),
+          createdAt: serverTimestamp()
+        }, { merge:true });
+      } else {
+        // Ensure a displayName exists
+        const d = mSnap.data() || {};
+        if (!d.displayName){
+          await setDoc(memberRef, { displayName: makeCodename() }, { merge:true });
+        }
+      }
+    }
+
+    // Role switching with a transactional fugitive slot
+    async function claimFugitive(uid){
+      const gameRef = doc(db, "games", code);
+      const myRef = doc(db, "games", code, "members", uid);
+      try{
+        const ok = await runTransaction(db, async (tx) => {
+          const gDoc = await tx.get(gameRef);
+          const current = gDoc.exists() ? (gDoc.data().fugitiveUid || null) : null;
+          if (current && current !== uid) return false; // already taken by someone else
+          tx.set(gameRef, { fugitiveUid: uid }, { merge:true });
+          tx.set(myRef, { role: "fugitive" }, { merge:true });
+          return true;
+        });
+        if (!ok){ toast("Fugitive slot is already taken"); return false; }
+        toast("You are the fugitive");
+        return true;
+      }catch(e){
+        console.warn("claimFugitive failed", e);
+        toast("Could not claim fugitive");
+        return false;
+      }
+    }
+
+    async function releaseFugitive(uid){
+      const gameRef = doc(db, "games", code);
+      const myRef = doc(db, "games", code, "members", uid);
+      try{
+        await runTransaction(db, async (tx) => {
+          const gDoc = await tx.get(gameRef);
+          const current = gDoc.exists() ? (gDoc.data().fugitiveUid || null) : null;
+          if (current === uid){
+            tx.set(gameRef, { fugitiveUid: null }, { merge:true });
+          }
+          tx.set(myRef, { role: "seeker" }, { merge:true });
+        });
+        toast("You are a seeker");
+      }catch(e){
+        console.warn("releaseFugitive failed", e);
+        toast("Could not switch role");
+      }
+    }
+
+    // Rename myself
+    async function renameMe(){
+      const want = sanitizeName(prompt("Pick a codename (2–26 chars):", me.displayName || makeCodename()));
+      if (!want || want.length < 2){ return; }
+      try{
+        await setDoc(doc(db, "games", code, "members", me.uid), { displayName: want }, { merge:true });
+        toast("Name updated");
+      }catch(e){
+        console.warn(e); toast("Could not update name");
+      }
+    }
+
+    // Wiring
     signInAnonymously(auth).catch(console.error);
     onAuthStateChanged(auth, async user => {
       if (!user) return;
       me.uid = user.uid;
 
-      // Ensure game doc exists, set status:lobby if new. First writer becomes host.
+      await ensureGameAndMembership(me.uid);
+
       const gameRef = doc(db, "games", code);
-      const gSnap = await getDoc(gameRef);
-      if (!gSnap.exists()) {
-        await setDoc(gameRef, {
-          code, status:"lobby", createdAt: serverTimestamp()
-        }, { merge:true });
-      }
-      // If no hostUid yet, claim it
-      const gSnap2 = await getDoc(gameRef);
-      const gData = gSnap2.data() || {};
-      if (!gData.hostUid) {
-        try {
-          await setDoc(gameRef, { hostUid: me.uid }, { merge:true });
-        } catch {}
-      }
+      const myRef = doc(db, "games", code, "members", me.uid);
 
-      // Ensure I have a membership with default role seeker
-      const memberRef = doc(db, "games", code, "members", me.uid);
-      const mSnap = await getDoc(memberRef);
-      if (!mSnap.exists()) {
-        await setDoc(memberRef, { role:"seeker", createdAt: serverTimestamp() }, { merge:true });
-      }
-
-      // Wire live listeners
+      // Game listener (status, rules, host, fugitive slot)
       onSnapshot(gameRef, s => {
         if (!s.exists()) return;
         game = s.data();
@@ -233,71 +325,120 @@
         infoPingMinutes.textContent = Number(rules.ping_minutes ?? 5);
         infoTagM.textContent = Number(rules.tag_meters ?? 5);
         infoUncM.textContent = Number(lobbyCfg.uncertaintyM ?? rules.uncertainty_m ?? 50);
+
+        // Show fugitive slot owner (by codename if we have it in roster)
+        const fugUid = game.fugitiveUid || null;
+        const name = fugUid ? (roster.find(r => r.uid === fugUid)?.displayName || fugUid.slice(0,6)+"…") : "—";
+        fugitiveSlotEl.textContent = `Fugitive: ${name}`;
+
+        // Host start gating: 1 fugitive + >=1 seeker
+        const total = roster.length;
+        const fugitiveCount = fugUid ? 1 : 0;
+        const seekers = Math.max(0, total - fugitiveCount);
+        if (me.isHost){
+          const ok = (fugitiveCount === 1) && (seekers >= 1);
+          startBtn.disabled = !ok;
+          startMsg.textContent = ok ? '' : 'Need exactly 1 fugitive and at least 1 seeker.';
+          startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
+        }
       });
 
-      // Render member list (everyone in lobby can see the roster)
+      // Roster listener
       const qMembers = query(collection(db, "games", code, "members"), orderBy("createdAt", "asc"));
       onSnapshot(qMembers, snap => {
+        roster = snap.docs.map(d => ({ uid:d.id, ...(d.data()||{}) }));
+        const fugUid = (game && game.fugitiveUid) || null;
+
+        // Build UI
         const items = [];
-        let fugitiveCount = 0, seekerCount = 0;
-        snap.forEach(docSnap => {
-          const d = docSnap.data() || {};
-          const uid = docSnap.id;
-          const role = d.role || "seeker";
-          if (role === "fugitive") fugitiveCount++; else seekerCount++;
+        roster.forEach(m => {
+          const isMe = (m.uid === me.uid);
+          const name = m.displayName || (m.uid.slice(0,6)+"…");
+          const isFugitive = (fugUid && fugUid === m.uid) || m.role === "fugitive";
 
           const row = document.createElement('div');
           row.className = 'member';
 
           const left = document.createElement('div');
-          left.innerHTML = `<div class="name mono">${uid.slice(0,6)}…</div><div class="info">joined</div>`;
+          left.innerHTML = `
+            <div class="name">${name} ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}</div>
+            <div class="subtle mono">#${m.uid.slice(0,6)}</div>
+          `;
           row.appendChild(left);
 
           const right = document.createElement('div');
-          if (uid === me.uid) {
-            // my role toggle
+          if (isMe){
+            // my role controls (using the single-slot logic)
             const wrap = document.createElement('div');
             wrap.className = 'role';
-            const makeSeg = (label, value) => {
-              const b = document.createElement('button');
-              b.type = 'button';
-              b.className = 'seg' + (role === value ? ' active' : '');
-              b.textContent = label;
-              b.addEventListener('click', async () => {
-                if (value === "fugitive") {
-                  if (fugitiveCount >= 1 && role !== "fugitive") {
-                    toast("Only one fugitive allowed");
-                    return;
-                  }
-                }
-                await setDoc(doc(db, "games", code, "members", me.uid), { role: value }, { merge:true });
-              });
-              return b;
-            };
-            wrap.appendChild(makeSeg('Fugitive', 'fugitive'));
-            wrap.appendChild(makeSeg('Seeker', 'seeker'));
+
+            const btnF = document.createElement('button');
+            btnF.type = 'button';
+            btnF.className = 'seg' + (isFugitive ? ' active' : '');
+            btnF.textContent = 'Fugitive';
+            btnF.disabled = !isFugitive && !!fugUid; // someone else owns the slot
+            btnF.addEventListener('click', async () => {
+              if (isFugitive) return; // already mine
+              await claimFugitive(me.uid);
+            });
+
+            const btnS = document.createElement('button');
+            btnS.type = 'button';
+            btnS.className = 'seg' + (!isFugitive ? ' active' : '');
+            btnS.textContent = 'Seeker';
+            btnS.addEventListener('click', async () => {
+              if (!isFugitive) return;
+              await releaseFugitive(me.uid);
+            });
+
+            wrap.appendChild(btnF);
+            wrap.appendChild(btnS);
             right.appendChild(wrap);
           } else {
-            // show their role
+            // show role pill resolved by the slot
             const tag = document.createElement('div');
             tag.className = 'pill';
-            tag.textContent = role === 'fugitive' ? 'Fugitive' : 'Seeker';
+            tag.textContent = isFugitive ? 'Fugitive' : 'Seeker';
             right.appendChild(tag);
           }
           row.appendChild(right);
           items.push(row);
+
+          // wire rename button after insert
+          setTimeout(() => {
+            const rn = document.getElementById('rn_'+m.uid);
+            if (rn) rn.addEventListener('click', renameMe);
+          }, 0);
         });
+
         memberList.replaceChildren(...items);
-        const total = fugitiveCount + seekerCount;
+
+        // counts
+        const total = roster.length;
+        const fugitiveCount = (game && game.fugitiveUid) ? 1 : 0;
+        const seekerCount = Math.max(0, total - fugitiveCount);
         countPill.textContent = `${total} player${total===1?'':'s'} — ${fugitiveCount} fugitive • ${seekerCount} seeker${seekerCount===1?'':'s'}`;
 
-        // Start button enable state (host)
-        if (me.isHost) {
-          const ok = (fugitiveCount >= 1) && (seekerCount >= 1);
+        // update fugitiveSlot label (now we may know codename)
+        if (game){
+          const fugUid2 = game.fugitiveUid || null;
+          const name2 = fugUid2 ? (roster.find(r => r.uid === fugUid2)?.displayName || fugUid2.slice(0,6)+"…") : "—";
+          fugitiveSlotEl.textContent = `Fugitive: ${name2}`;
+        }
+
+        // host start gating refresh (in case game listener hasn't fired yet)
+        if (me.isHost){
+          const ok = (fugitiveCount === 1) && (seekerCount >= 1);
           startBtn.disabled = !ok;
-          startMsg.textContent = ok ? '' : 'Need at least 1 fugitive and 1 seeker to start.';
+          startMsg.textContent = ok ? '' : 'Need exactly 1 fugitive and at least 1 seeker.';
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
         }
+      });
+
+      // Keep my displayName in local state
+      onSnapshot(myRef, s => {
+        const d = s.exists() ? s.data() : {};
+        me.displayName = d.displayName || null;
       });
 
       // Buttons
@@ -309,11 +450,7 @@
         try{ await navigator.clipboard.writeText(url); toast('Link copied'); } catch {}
       });
       openGameplayBtn.addEventListener('click', () => {
-        const myRole = game && game.members && game.members[me.uid]?.role ? game.members[me.uid].role : null; // not used; we read from /members
-        // Safer: ask Firestore for my latest role?
-        const url = `gameplay.html?code=${encodeURIComponent(code)}`;
-        // role selection overlay in gameplay will pick up /members/{uid}.role
-        location.href = url;
+        location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
       });
       openAsHostBtn.addEventListener('click', () => {
         location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
@@ -321,19 +458,27 @@
 
       startBtn.addEventListener('click', async () => {
         if (!me.isHost) return;
+        // Guard: require single fugitive
+        const fugUid = (game && game.fugitiveUid) || null;
+        if (!fugUid){ toast("Assign a fugitive first"); return; }
+        const seekers = Math.max(0, roster.length - 1);
+        if (seekers < 1){ toast("Need at least one seeker"); return; }
+
         // compute times if missing, otherwise preserve existing
         const now = Date.now();
         const rules = (game && game.rules) || {};
         const mins = Number(rules.game_minutes ?? 30);
         const durMs = Math.max(1, mins) * 60 * 1000;
-        const startsAt = (game && game.startsAt && typeof game.startsAt.toMillis === "function") ? null : new Date(now + 5000); // 5s arm delay if not set
-        const endsAt   = (game && game.endsAt   && typeof game.endsAt.toMillis   === "function") ? null : new Date(now + 5000 + durMs);
+        const hasStartsAt = !!(game && game.startsAt);
+        const hasEndsAt   = !!(game && game.endsAt);
+        const startsAt = hasStartsAt ? null : new Date(now + 5000); // 5s arm delay if not set
+        const endsAt   = hasEndsAt   ? null : new Date(now + 5000 + durMs);
         let revealAt = null;
-        if (game && game.revealAt && typeof game.revealAt.toMillis === "function") {
+        if (game && game.revealAt) {
           revealAt = null; // keep existing
         } else if (startsAt && endsAt) {
           const total = endsAt.getTime() - startsAt.getTime();
-          revealAt = new Date(endsAt.getTime() - Math.floor(total * 0.20)); // reveal at last 20%
+          revealAt = new Date(endsAt.getTime() - Math.floor(total * 0.20)); // last 20%
         }
 
         try{
