@@ -24,20 +24,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
 
-  <!-- Leaflet for the live map -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
-  <script
-    defer
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
-
   <style>
     :root{
       --ink:#0e1220; --muted:#55627a; --bg:#f6f8fc; --card:#ffffff;
@@ -102,31 +88,28 @@
       text-decoration:none;
     }
 
+    /* Join game by code */
     .join{
       display:inline-flex; gap:8px; align-items:center; justify-content:center;
       border:1px solid var(--line); border-radius:12px; padding:8px; background:#fff;
+      margin-top:14px;
     }
-    .join input{ border:0; outline:0; padding:10px 12px; width:180px; font-family:'Poppins', sans-serif }
+    .join input{ border:0; outline:0; padding:10px 12px; width:200px; font-family:'Poppins', sans-serif }
     .join button{
-      border:0; padding:10px 14px; border-radius:10px; font-weight:600;
-      background:#26a269; color:#fff; opacity:.45; cursor:not-allowed;
-      font-family:'Poppins', sans-serif
+      border:0; padding:10px 14px; border-radius:10px; font-weight:800;
+      background:#26a269; color:#fff; cursor:pointer; font-family:'Poppins', sans-serif
     }
 
-    .coming{
+    /* Primary CTA */
+    .playNow{
       position:relative; margin:14px auto 6px; top:-4px;
       display:inline-block; font-weight:800; letter-spacing:.08em; color:#ffffff;
-      background:linear-gradient(135deg, #ff5e62, #ff9966);
-      border:1px solid #ff7e6b; border-radius:999px; padding:10px 18px;
-      box-shadow:0 4px 12px rgba(255, 94, 98, 0.4);
-      font-size:14px; text-transform:uppercase; animation:pulse 1.6s ease-in-out infinite; vertical-align:middle;
+      background:linear-gradient(135deg, #4facfe, #00f2fe);
+      border:1px solid #69c7ff; border-radius:999px; padding:10px 18px;
+      box-shadow:0 4px 12px rgba(79, 172, 254, 0.4);
+      font-size:14px; text-transform:uppercase; vertical-align:middle;
+      text-decoration:none;
     }
-    .coming::after{
-      content:attr(data-tooltip); position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%);
-      background:var(--tip-bg); color:var(--tip-ink); font-size:12px; line-height:1.4; padding:8px 10px; border-radius:8px;
-      white-space:normal; width:240px; max-width:90vw; text-align:center; opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:100;
-    }
-    .coming:hover::after, .coming:focus-visible::after{ opacity:1 }
 
     .whatsapp-btn{
       background:#25D366; color:#fff; border-radius:50%; width:40px; height:40px;
@@ -150,18 +133,6 @@
     }
     .screen{ position:absolute; inset:10px; border-radius:28px; overflow:hidden; background:#000; display:grid; place-items:center; }
     .screen video{ display:block; width:100%; height:100%; object-fit:cover; }
-    #liveMap{ width:100%; height:100%; display:none; }
-
-    .gpsBtn {
-      display:block; width:80%; max-width:280px; margin:16px auto 0; padding:14px 20px;
-      border-radius:12px; border:2px solid rgba(255,255,255,0.6);
-      background:linear-gradient(135deg,#4facfe,#00f2fe); color:#ffffff; font-weight:800; font-size:16px;
-      text-transform:uppercase; text-align:center; cursor:pointer;
-      box-shadow:0 4px 12px rgba(79,172,254,0.4); transition:transform .15s ease, box-shadow .15s ease;
-      animation:pulse 1.6s ease-in-out infinite;
-    }
-    .gpsBtn:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(79,172,254,0.55); }
-    .gpsBtn:active { transform:translateY(0); box-shadow:0 3px 8px rgba(79,172,254,0.3); }
 
     .demoBtn{
       display:block; width:80%; max-width:280px; margin:16px auto 0; padding:14px 20px;
@@ -172,13 +143,6 @@
     }
     .demoBtn:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(79,172,254,.55) }
     .demoBtn:active{ transform:translateY(0); box-shadow:0 3px 8px rgba(79,172,254,.3) }
-
-    #compatMsg{ margin-top:8px; }
-
-    .limitNote{
-      display:none; margin:10px auto 0; max-width:680px; font-size:14px;
-      color:var(--muted); background:#f1f4fb; border:1px solid var(--line); border-radius:10px; padding:10px 12px;
-    }
 
     .features{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:26px; }
     .card{
@@ -215,15 +179,8 @@
     .fade-in{ animation:fade .8s ease-out both }
     @keyframes fade{ from{ opacity:0; transform:translateY(6px) } to{ opacity:1; transform:none } }
 
-    @keyframes pulse {
-      0% { transform: scale(1); box-shadow: 0 0 0 rgba(0, 0, 0, 0.18); }
-      50% { transform: scale(1.04); box-shadow: 0 0 12px rgba(0, 0, 0, 0.28); }
-      100% { transform: scale(1); box-shadow: 0 0 0 rgba(0, 0, 0, 0.18); }
-    }
-
     @media (prefers-reduced-motion: reduce){
-      .fade-in, .gpsBtn, .coming{ animation:none }
-      .gpsBtn, .demoBtn{ transition:none }
+      .fade-in{ animation:none }
     }
 
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
@@ -270,12 +227,14 @@
 
       <a class="faq-nudge" href="#faq">Questions? Check the FAQ below ↓</a>
 
-      <div class="join" aria-disabled="true" style="margin-top:14px;">
-        <input type="text" placeholder="Game code" disabled aria-label="Game code" />
-        <button disabled aria-disabled="true">Join game</button>
-      </div>
+      <!-- JOIN GAME BY CODE (active) -->
+      <form id="joinForm" class="join" autocomplete="off">
+        <input id="codeInput" type="text" placeholder="Game code (e.g. W4B66L)" aria-label="Game code" required />
+        <button type="submit">Join game</button>
+      </form>
 
-      <div class="coming" tabindex="0" data-tooltip="Sign up for early access below">Coming soon</div>
+      <!-- Primary CTA: host/setup -->
+      <a href="demo.html" class="playNow" aria-label="Create a new round">Play now!</a>
 
       <button id="shareWA" class="whatsapp-btn" title="Share on WhatsApp" aria-label="Share on WhatsApp">
         <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -286,20 +245,12 @@
       <div class="stage">
         <div class="phone fade-in" aria-label="Phone mockup">
           <div class="screen">
-            <!-- Your gameplay video plays by default -->
-            <video id="demoVideo" playsinline autoplay muted loop>
+            <!-- Gameplay teaser -->
+            <video id="demoVideo" playsinline autoplay muted loop poster="assets/seekr-poster.jpg">
               <source src="assets/seekr_demo_gameplay.mp4" type="video/mp4" />
             </video>
-            <!-- Live map, shown after Test compatibility -->
-            <div id="liveMap" role="img" aria-label="Your location on the map"></div>
           </div>
         </div>
-      </div>
-
-      <button id="gpsBtn" class="gpsBtn" type="button">Test compatibility</button>
-      <p id="compatMsg" class="sub" aria-live="polite"></p>
-      <div id="limitNote" class="limitNote">
-        Location works while this page is open and visible, if you close or background the page, updates will pause. For long games we will offer a native app with background permissions.
       </div>
 
       <a href="demo.html" class="demoBtn" aria-label="Open the gameplay demo">Gameplay demo</a>
@@ -317,38 +268,6 @@
           <small>Decoy Ping and Delay Reveal, paid with Tokens</small>
         </div>
       </div>
-
-      <!-- Interest signup -->
-      <section class="hero" style="margin-top:22px;">
-        <h2 style="margin:0 0 8px 0; font-size:22px; font-weight:800;">Get early access</h2>
-        <p class="sub" style="margin:0 0 14px 0;">Register your interest, we will email you when Seekr.run opens.</p>
-
-        <form id="interestForm" action="https://formspree.io/f/mqalnlka" method="POST"
-              class="join" style="flex-wrap:wrap; gap:10px;" novalidate>
-          <label class="sr-only" for="emailField" style="position:absolute;left:-9999px;">Your email</label>
-          <input id="emailField" type="email" name="email" autocomplete="email"
-                 placeholder="Your email" aria-label="Your email"
-                 required style="width:220px;">
-
-          <label style="width:100%; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted);">
-            <input type="checkbox" name="consent" required aria-required="true">
-            I agree to receive early access updates about Seekr.run
-          </label>
-
-          <!-- honeypot anti-spam -->
-          <input type="text" name="extra_field" tabindex="-1" autocomplete="off"
-                 aria-hidden="true"
-                 style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
-
-          <button id="btnRegister" type="submit" style="opacity:1; cursor:pointer;">Notify me</button>
-
-          <small id="formMsg" style="width:100%; text-align:center; color:#1f7a48; display:none;" aria-live="polite"></small>
-        </form>
-
-        <small class="sub" style="display:block; margin-top:10px;">
-          We will only use your email for Seekr.run updates, you can opt out any time.
-        </small>
-      </section>
 
       <!-- FAQ -->
       <section class="faq" id="faq" aria-label="Frequently asked questions">
@@ -455,115 +374,29 @@
     else mediaQuery.addListener(handleMotion);
   </script>
 
-  <!-- Interest form script -->
+  <!-- Join by code + WhatsApp share -->
   <script>
-    const form = document.getElementById('interestForm');
-    const msg = document.getElementById('formMsg');
-    const registerBtn = document.getElementById('btnRegister');
-
-    form.addEventListener('submit', async (e) => {
+    // Join form -> go to gameplay with code
+    const joinForm = document.getElementById('joinForm');
+    const codeInput = document.getElementById('codeInput');
+    joinForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      msg.style.display = 'none';
-      registerBtn.disabled = true;
-      registerBtn.textContent = 'Sending...';
-
-      try{
-        const data = new FormData(form);
-        const email = data.get('email');
-        const consent = data.get('consent');
-        if(!email || !consent) {
-          throw new Error('Please enter your email and consent');
-        }
-
-        const resp = await fetch(form.action, {
-          method: 'POST',
-          headers: { 'Accept': 'application/json' },
-          body: data
-        });
-
-        if(resp.ok){
-          form.reset();
-          msg.textContent = 'Thanks, you are on the list. Check your inbox.';
-          msg.style.color = '#1f7a48';
-          msg.style.display = 'block';
-        }else{
-          const err = await resp.json().catch(()=>({}));
-          throw new Error(err.error || 'Submission failed, please try again later');
-        }
-      }catch(err){
-        msg.textContent = err.message || 'Something went wrong';
-        msg.style.color = '#b00020';
-        msg.style.display = 'block';
-      }finally{
-        registerBtn.disabled = false;
-        registerBtn.textContent = 'Notify me';
-      }
+      const raw = (codeInput.value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+      if(!raw){ codeInput.focus(); return; }
+      // keep it simple, let gameplay handle unknown codes gracefully
+      window.location.href = 'gameplay.html?code=' + raw;
     });
-  </script>
 
-  <!-- GPS compatibility + map demo script -->
-  <script>
-    const gpsBtn = document.getElementById('gpsBtn');
-    const compatMsg = document.getElementById('compatMsg');
-    const limitNote = document.getElementById('limitNote');
-    const mapEl = document.getElementById('liveMap');
-    let map, me;
-
-    function say(t, ok = true){
-      compatMsg.textContent = t;
-      compatMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
-    }
-
-    async function tryWakeLock(){
-      if ('wakeLock' in navigator) {
-        try { await navigator.wakeLock.request('screen'); return true; }
-        catch { return false; }
-      }
-      return false;
-    }
-
-    function enableMap(lat, lng){
-      const v = document.getElementById('demoVideo');
-      if(v){ v.pause(); v.style.display = 'none'; }
-      mapEl.style.display = 'block';
-      if(!map){
-        map = L.map('liveMap', { zoomControl:false, attributionControl:false });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      }
-      map.setView([lat, lng], 16);
-      if(!me){
-        me = L.circleMarker([lat, lng], { radius:8, weight:3, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:.35 }).addTo(map);
-      }else{
-        me.setLatLng([lat, lng]);
-      }
-    }
-
-    gpsBtn.addEventListener('click', async () => {
-      if (location.protocol !== 'https:') {
-        say('This test needs HTTPS. GitHub Pages or your custom domain will work.', false);
-        return;
-      }
-      if (!('geolocation' in navigator)) {
-        say('Geolocation is not available in this browser.', false);
-        return;
-      }
-
-      const gotWake = await tryWakeLock();
-      if (gotWake) { say('Wake lock granted, testing GPS...'); }
-      else { say('Testing GPS. Tip, keep the screen on for best results.'); }
-
-      navigator.geolocation.getCurrentPosition(pos => {
-        enableMap(pos.coords.latitude, pos.coords.longitude);
-        navigator.geolocation.watchPosition(p => {
-          enableMap(p.coords.latitude, p.coords.longitude);
-        }, () => {}, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
-        say('Looks good. Your device can play Seekr in the browser.');
-        limitNote.style.display = 'block';
-      }, err => {
-        say('We could not get your location. You can still watch the demo video.', false);
-        console.warn(err);
-        limitNote.style.display = 'block';
-      }, { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
+    // WhatsApp share
+    document.getElementById('shareWA').addEventListener('click', () => {
+      const text = [
+        'Seekr.run — GPS hide & seek',
+        'Create a round or join with a game code',
+        window.location.origin + window.location.pathname
+      ].join(' | ');
+      const url = 'https://wa.me/?text=' + encodeURIComponent(text);
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      if(w){ w.opener = null; }
     });
 
     // Smooth scroll to FAQ
@@ -573,20 +406,6 @@
         const el = document.getElementById('faq');
         if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
-    });
-  </script>
-
-  <!-- WhatsApp share script -->
-  <script>
-    document.getElementById('shareWA').addEventListener('click', () => {
-      const text = [
-        'Seekr.run invite, GPS hide and seek',
-        'Watch the teaser and join the early access list',
-        window.location.href
-      ].join(' | ');
-      const url = 'https://wa.me/?text=' + encodeURIComponent(text);
-      const w = window.open(url, '_blank', 'noopener,noreferrer');
-      if(w){ w.opener = null; }
     });
   </script>
 </body>
