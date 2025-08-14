@@ -132,6 +132,11 @@
     let tickId = null;       // countdown interval id
     let revealToastShown = false;
     let geoWatchId = null;
+    let areaCircle = null;
+    let areaCenterLL = null;
+    let areaRadiusM = 0;
+    let zoneFitDone = false;
+    let wasOutside = false;
 
     // Code from URL
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
@@ -145,7 +150,23 @@
     }
     initMap();
     startGeoWatch();
-    
+
+    function checkZone(lat, lng){
+      if (!areaCenterLL || !areaRadiusM) return;
+      const d = map.distance([lat, lng], areaCenterLL);
+      const outside = d > areaRadiusM;
+      if (outside && !wasOutside){
+        wasOutside = true;
+        toast('You left the play area');
+        if (myMarker) myMarker.setStyle({ color:'#b00020', fillColor:'#b00020' });
+      } else if (!outside && wasOutside){
+        wasOutside = false;
+        toast('Back inside the play area');
+        if (myMarker) myMarker.setStyle({ color:'#1e4cff', fillColor:'#1e4cff' });
+      }
+    }
+
+
     // Create/update my dot
     function updateMyMarker(lat, lng, recenter = false){
       const ll = [lat, lng];
@@ -180,10 +201,11 @@
         return;
       }
     
-      // First, get one high-accuracy fix to create the dot and center the map
+      // One high accuracy fix to create the dot and center the map
       navigator.geolocation.getCurrentPosition(
         pos => {
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
+          checkZone(pos.coords.latitude, pos.coords.longitude);
         },
         err => {
           console.warn('getCurrentPosition error', err);
@@ -192,14 +214,14 @@
         { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
     
-      // Then, keep it updated in real time
+      // Then keep it updated
       geoWatchId = navigator.geolocation.watchPosition(
         pos => {
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
+          checkZone(pos.coords.latitude, pos.coords.longitude);
         },
         err => {
           console.warn('watchPosition error', err);
-          // Only notify once in a while to avoid toast spam
           if (!startGeoWatch._errShown){
             toast('Lost location updates. Move outside or check permissions.');
             startGeoWatch._errShown = true;
@@ -209,7 +231,6 @@
         { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
     }
-
 
     // Watch only my own pings (useful if I send from another device / confirm save)
     function watchMyPings(uid){
@@ -308,15 +329,30 @@
           hint.textContent = "Game not found";
           return;
         }
-        const g = snap.data();
-    
-        console.log("game doc raw times", {
-          endsAt: g.endsAt,
-          revealAt: g.revealAt,
-          startsAt: g.startsAt,
-          rules: g.rules,
-          durationMs: g.durationMs
-        });
+        
+        // Draw or update the play area if present
+        const z = g.zone;
+        if (z && z.center && typeof z.center.lat === 'number' && typeof z.center.lng === 'number' && typeof z.radius_km === 'number') {
+          areaCenterLL = L.latLng(z.center.lat, z.center.lng);
+          areaRadiusM = Math.max(50, Number(z.radius_km) * 1000); // at least 50 m for visibility
+          if (!areaCircle) {
+            areaCircle = L.circle(areaCenterLL, {
+              radius: areaRadiusM,
+              color: '#1e4cff',
+              weight: 2,
+              fillColor: '#1e4cff',
+              fillOpacity: 0.08,
+              dashArray: '4,6'
+            }).addTo(map);
+            if (!zoneFitDone && !myMarker) {
+              map.fitBounds(areaCircle.getBounds());
+              zoneFitDone = true;
+            }
+          } else {
+            areaCircle.setLatLng(areaCenterLL);
+            areaCircle.setRadius(areaRadiusM);
+          }
+        }
     
         // Uncertainty
         const cfg = g.lobbyConfig || {};
