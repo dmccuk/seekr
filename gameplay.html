@@ -201,13 +201,19 @@
       const gameRef = doc(db, "games", code);
 
       // subscribe to game doc (times + config)
-      onSnapshot(gameRef, snap => {
-        if (!snap.exists()) { hint.textContent = "Game not found"; return; }
-        const g = snap.data();
-
-        // lobbyConfig: { uncertaintyM, ... }
-        const cfg = g.lobbyConfig || {};
-        uncertaintyM = Number(cfg.uncertaintyM || 50);
+      const g = snap.data();
+      
+      // Support top-level ms/Timestamp or fallback to revealSchedule.*
+      const endsAtRaw   = g.endsAt   ?? g.revealSchedule?.endAt;
+      const revealAtRaw = g.revealAt ?? g.revealSchedule?.revealAt;
+      if (!endsAtRaw) { hint.textContent = "Waiting for host to start…"; return; }
+      
+      const endsAt   = (endsAtRaw?.toDate)   ? endsAtRaw.toDate()   : new Date(endsAtRaw);
+      const revealAt = (revealAtRaw?.toDate) ? revealAtRaw.toDate() : new Date(revealAtRaw);
+      
+      // Uncertainty source
+      const cfg = g.lobbyConfig || {};
+      uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
 
         // times
         const endsAt = g.endsAt?.toDate ? g.endsAt.toDate() : new Date(g.endsAt);
