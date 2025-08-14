@@ -46,7 +46,19 @@
     .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:13px; color:#55627a; }
     .notice{ margin-top:8px; font-size:12px; color:#55627a }
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
+
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
+
+    /* NEW, small time labels on seeker trail pings */
+    .leaflet-tooltip.trailLabel{
+      background: rgba(255,255,255,.9);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: var(--ink);
+      box-shadow: 0 2px 6px rgba(0,0,0,.1);
+    }
   </style>
 </head>
 <body>
@@ -134,6 +146,14 @@
     // Secret listener state
     let secretListenerStarted = false;
 
+    // NEW, auto ping state and seeker trail
+    let lastCoords = null;
+    let autoPingId = null;
+    let autoPingEveryMs = 0;
+    let trailLayer = null;
+    let trailLine = null;
+    let trailCount = 0;
+
     // Code from URL
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
     joinCodeEl.textContent = code || "XXXXXX";
@@ -198,6 +218,8 @@
 
       navigator.geolocation.getCurrentPosition(
         pos => {
+          // NEW, remember for auto pings
+          lastCoords = pos.coords;
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
           checkZone(pos.coords.latitude, pos.coords.longitude);
         },
@@ -210,6 +232,8 @@
 
       geoWatchId = navigator.geolocation.watchPosition(
         pos => {
+          // NEW, remember for auto pings
+          lastCoords = pos.coords;
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
           checkZone(pos.coords.latitude, pos.coords.longitude);
         },
@@ -245,6 +269,69 @@
           if (map) map.setView(ll, Math.max(map.getZoom(), 15));
         });
       });
+    }
+
+    // NEW, write a ping using the last GPS fix
+    async function saveCurrentPing(reason = 'auto'){
+      if (!lastCoords) return;
+      try{
+        const uid = auth.currentUser?.uid || null;
+        await addDoc(collection(db, "games", code, "pings"), {
+          lat: lastCoords.latitude,
+          lng: lastCoords.longitude,
+          role, uid, reason,
+          createdAt: serverTimestamp()
+        });
+      }catch(e){
+        console.warn("auto ping failed", e);
+      }
+    }
+
+    // NEW, seeker trail, listen to fugitive pings and render
+    function startSeekerTrail(){
+      if (trailLayer) return;
+      trailLayer = L.layerGroup().addTo(map);
+      trailLine = L.polyline([], { color:'#ff3b30', weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
+
+      const qTrail = query(
+        collection(db, "games", code, "pings"),
+        where("role", "==", "fugitive"),
+        orderBy("createdAt", "asc")
+      );
+
+      onSnapshot(qTrail, snap => {
+        snap.docChanges().forEach(ch => {
+          if (ch.type !== "added") return;
+          const p = ch.doc.data();
+          if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
+          addTrailPoint(p.lat, p.lng, p.createdAt);
+        });
+      }, err => {
+        console.error("trail listener error", err);
+        // If Firestore asks for an index, click the link it prints once
+      });
+    }
+
+    function addTrailPoint(lat, lng, createdAt){
+      const ll = [lat, lng];
+      trailLine.addLatLng(ll);
+
+      const mk = L.circleMarker(ll, {
+        radius: 5, weight: 2, color: '#ff3b30', fillColor: '#ff3b30', fillOpacity: 0.9
+      }).addTo(trailLayer);
+
+      // Small HH:MM label
+      let t = null;
+      if (createdAt && typeof createdAt.toDate === "function") t = createdAt.toDate();
+      else if (createdAt && typeof createdAt.seconds === "number") t = new Date(createdAt.seconds * 1000);
+      if (t) {
+        const hh = String(t.getHours()).padStart(2, "0");
+        const mm = String(t.getMinutes()).padStart(2, "0");
+        mk.bindTooltip(`${hh}:${mm}`, {
+          permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"trailLabel"
+        });
+      }
+      trailCount++;
     }
 
     // Start the secret listener for fugitives
@@ -382,12 +469,32 @@
           const cfg = g.lobbyConfig || {};
           uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
 
+          // NEW, auto pings and seeker trail control
+          const pingMinutes = Number(g.rules?.ping_minutes || 0);
+          const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
+
+          if (role === "fugitive") {
+            if (autoPingId && autoPingEveryMs !== desiredMs) {
+              clearInterval(autoPingId);
+              autoPingId = null;
+            }
+            if (!autoPingId && desiredMs > 0) {
+              autoPingEveryMs = desiredMs;
+              // immediate ping so seekers see something quickly
+              saveCurrentPing("start").catch(()=>{});
+              autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
+            }
+          } else {
+            if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
+            startSeekerTrail(); // seekers listen and draw the trail
+          }
+
           // 3) Parse times
           const toMs = (v) => {
             if (!v) return 0;
-            if (typeof v === "number") return v < 1e12 ? v * 1000 : v; // seconds or ms
+            if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
             if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
-            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis(); // Firestore Timestamp
+            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
             if (typeof v === "object" && typeof v.toDate === "function") return v.toDate().getTime();
             if (typeof v === "object" && typeof v.seconds === "number") {
               return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
@@ -405,7 +512,7 @@
           let endMs = endsAtMs;
           if (!endMs && startMs && durMs) endMs = startMs + durMs;
 
-          // Reveal time, prefer explicit, else last 20 percent
+          // Reveal time, prefer explicit, else 95 percent fallback for quick testing
           let revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
           if (!revealAtMs && startMs && endMs && endMs > startMs) {
             const total = endMs - startMs;
