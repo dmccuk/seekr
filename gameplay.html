@@ -233,28 +233,40 @@
       });
     }
 
-    // Anonymous sign in, then attach listeners
     onAuthStateChanged(auth, async user => {
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
-
+    
       const urlParams = new URL(location.href).searchParams;
       const roleHint = urlParams.get('as'); // "fugitive" or "seeker"
-
+    
       const memberRef = doc(db, "games", code, "members", user.uid);
-      const memberSnap = await getDoc(memberRef);
-      role = memberSnap.exists() ? (memberSnap.data().role || null) : null;
-
-      // If no role stored yet and we have a valid hint, auto-join
-      if (!role && (roleHint === "fugitive" || roleHint === "seeker")) {
-        role = roleHint;
-        await setDoc(memberRef, { role, tokens: 500 }, { merge: true });
-        toast(`Joined as ${role}`);
-        afterJoin();
-        return;
+      let storedRole = null;
+    
+      try {
+        const memberSnap = await getDoc(memberRef);
+        storedRole = memberSnap.exists() ? (memberSnap.data().role || null) : null;
+      } catch (e) {
+        console.warn("Cannot read membership, will try to join directly", e);
       }
-
-      // Otherwise show the picker overlay
+    
+      // If not a member yet, try to create the membership using the URL hint
+      if (!storedRole && (roleHint === "fugitive" || roleHint === "seeker")) {
+        role = roleHint;
+        try {
+          await setDoc(memberRef, { role, tokens: 500 }, { merge: true });
+          toast(`Joined as ${role}`);
+          afterJoin();
+          return;
+        } catch (e) {
+          console.error("Cannot create membership", e);
+          toast("Cannot join game, check Firestore rules for /games/{code}/members/{uid}");
+          return;
+        }
+      }
+    
+      // If role already existed, use it, otherwise show picker
+      role = storedRole || null;
       if (!role) {
         join.style.display = 'flex';
         join.setAttribute('aria-hidden', 'false');
@@ -266,8 +278,7 @@
         };
         return;
       }
-
-      // Already had a role
+    
       afterJoin();
     });
 
