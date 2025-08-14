@@ -110,7 +110,6 @@
       storageBucket: "seekr-426ff.firebasestorage.app",
       messagingSenderId: "703306109182",
       appId: "1:703306109182:web:afb04af22e974170e555af",
-      // measurementId not needed here
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -128,8 +127,13 @@
 
     // Map
     let map, myMarker, extractMarker;
-    let uncertaintyM = 50;   // default, updated from lobbyConfig
+    let uncertaintyM = 50;   // updated from lobbyConfig if present
     let role = null;         // "fugitive" or "seeker"
+    let tickId = null;       // countdown interval id
+    let revealToastShown = false;
+    let geoWatchId = null;
+
+    // Code from URL
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
     joinCodeEl.textContent = code || "XXXXXX";
 
@@ -150,19 +154,56 @@
       toastEl._t = setTimeout(() => toastEl.style.display = 'none', 2200);
     }
 
+    // Start a local geolocation watch so each player sees their own live position
+    function startGeoWatch(){
+      if (!('geolocation' in navigator)) return;
+      if (geoWatchId) return;
+      geoWatchId = navigator.geolocation.watchPosition(p => {
+        const ll = [p.coords.latitude, p.coords.longitude];
+        if (!myMarker) {
+          myMarker = L.circleMarker(ll, { radius:8, weight:3, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:.35 }).addTo(map);
+          if (map) map.setView(ll, 16);
+        } else {
+          myMarker.setLatLng(ll);
+        }
+      }, () => {}, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+    }
+
+    // Watch only my own pings (useful if I send from another device / confirm save)
+    function watchMyPings(uid){
+      const qMy = query(
+        collection(db, "games", code, "pings"),
+        where("uid", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      onSnapshot(qMy, snap => {
+        snap.forEach(d => {
+          const p = d.data();
+          const ll = [p.lat, p.lng];
+          if (!myMarker) {
+            myMarker = L.circleMarker(ll, { radius:8, weight:3, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:.35 }).addTo(map);
+          } else {
+            myMarker.setLatLng(ll);
+          }
+          if (map) map.setView(ll, Math.max(map.getZoom(), 15));
+        });
+      });
+    }
+
     // Anonymous sign in, then attach listeners
     onAuthStateChanged(auth, async user => {
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
-    
+
       const urlParams = new URL(location.href).searchParams;
       const roleHint = urlParams.get('as'); // "fugitive" or "seeker"
-    
+
       const memberRef = doc(db, "games", code, "members", user.uid);
       const memberSnap = await getDoc(memberRef);
       role = memberSnap.exists() ? (memberSnap.data().role || null) : null;
-    
-      // If no role stored yet and we have a valid hint, auto-join and skip overlay
+
+      // If no role stored yet and we have a valid hint, auto-join
       if (!role && (roleHint === "fugitive" || roleHint === "seeker")) {
         role = roleHint;
         await setDoc(memberRef, { role, tokens: 500 }, { merge: true });
@@ -170,7 +211,7 @@
         afterJoin();
         return;
       }
-    
+
       // Otherwise show the picker overlay
       if (!role) {
         join.style.display = 'flex';
@@ -183,102 +224,73 @@
         };
         return;
       }
-    
+
       // Already had a role
       afterJoin();
     });
-    
+
     signInAnonymously(auth).catch(console.error);
 
-    let revealToastShown = false;
-    let timerId = null;
-
-    async function afterJoin(){
+    function afterJoin(){
       join.style.display = 'none';
       join.setAttribute('aria-hidden', 'true');
       gameTag.textContent = "Game " + code + " • You are " + role;
 
+      startGeoWatch(); // always show my live location locally
+
+      const uid = auth.currentUser?.uid;
+      if (uid) watchMyPings(uid); // reflect my last saved ping
+
+      // Subscribe to game doc (times + config)
       const gameRef = doc(db, "games", code);
+      onSnapshot(gameRef, snap => {
+        if (!snap.exists()) { hint.textContent = "Game not found"; return; }
+        const g = snap.data();
 
-      // subscribe to game doc (times + config)
-      const g = snap.data();
-      
-      // Support top-level ms/Timestamp or fallback to revealSchedule.*
-      const endsAtRaw   = g.endsAt   ?? g.revealSchedule?.endAt;
-      const revealAtRaw = g.revealAt ?? g.revealSchedule?.revealAt;
-      if (!endsAtRaw) { hint.textContent = "Waiting for host to start…"; return; }
-      
-      const endsAt   = (endsAtRaw?.toDate)   ? endsAtRaw.toDate()   : new Date(endsAtRaw);
-      const revealAt = (revealAtRaw?.toDate) ? revealAtRaw.toDate() : new Date(revealAtRaw);
-      
-      // Uncertainty source
-      const cfg = g.lobbyConfig || {};
-      uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
+        // Get uncertainty (various shapes supported)
+        const cfg = g.lobbyConfig || {};
+        uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
 
-        // times
-        const endsAt = g.endsAt?.toDate ? g.endsAt.toDate() : new Date(g.endsAt);
-        const revealAt = g.revealAt?.toDate ? g.revealAt.toDate() : new Date(g.revealAt);
-        const now = Date.now();
+        // Normalize times (Timestamp or number/string)
+        const toMs = (v) =>
+          typeof v === 'number' ? v :
+          (v && typeof v.toDate === 'function') ? v.toDate().getTime() :
+          (typeof v === 'string' ? Date.parse(v) : 0);
 
-        // start/update local timer
-        if (timerId) clearInterval(timerId);
-        timerId = setInterval(() => {
-          const left = Math.max(0, endsAt.getTime() - Date.now());
-          const m = Math.floor(left/60000), s = String(Math.floor((left%60000)/1000)).padStart(2,'0');
-          timePill.textContent = "Time, " + m + ":" + s;
+        const endsAtMs   = toMs(g.endsAt)   || toMs(g.revealSchedule?.endAt);
+        const revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
 
-          // Fugitive: show extraction when reveal hits
-          if (role === "fugitive" && Date.now() >= revealAt.getTime()) {
+        if (!endsAtMs) { hint.textContent = "Waiting for host to start…"; return; }
+
+        // Start/update the ticking timer
+        if (tickId) clearInterval(tickId);
+        const tick = () => {
+          const now = Date.now();
+          const left = Math.max(0, endsAtMs - now);
+          const m = Math.floor(left/60000);
+          const s = String(Math.floor((left%60000)/1000)).padStart(2,'0');
+          timePill.textContent = `Time, ${m}:${s}`;
+
+          if (role === "fugitive" && revealAtMs && now >= revealAtMs) {
             showExtraction().catch(()=>{});
           }
-
-          if (left === 0) { clearInterval(timerId); timerId = null; }
-        }, 1000);
-
-        // If we loaded *after* reveal time, show immediately for fugitive
-        if (role === "fugitive" && now >= revealAt.getTime()) {
-          showExtraction().catch(()=>{});
-        }
-
-        // Seekers: notify at reveal time (but do not show the location)
-        if (role === "seeker" && now >= revealAt.getTime() && !revealToastShown) {
-          toast("Extraction location has been disclosed to fugitives.");
-          revealToastShown = true;
-        }
+          if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) {
+            toast("Extraction location has been disclosed to fugitives.");
+            revealToastShown = true;
+          }
+          if (left === 0) { clearInterval(tickId); tickId = null; }
+        };
+        tick();
+        tickId = setInterval(tick, 1000);
 
         // Hints
-        if (role === "seeker") {
-          hint.textContent = "You will see fugitive pings as blurred circles. You will be told when extraction is revealed.";
-        } else {
-          hint.textContent = "You never see seeker locations. Get to extraction when it appears.";
-        }
+        hint.textContent = (role === "seeker")
+          ? "You only see your own location. You’ll be notified when extraction is revealed."
+          : "You never see seeker locations. Get to extraction when it appears.";
       });
 
-      // seekers track only fugitive pings
-      if (role === "seeker") {
-        const q = query(collection(db, "games", code, "pings"),
-                        where("role", "==", "fugitive"),
-                        orderBy("createdAt", "desc"),
-                        limit(40));
-        onSnapshot(q, snap => {
-          // clear old layers first
-          if (map._pingLayer) { map.removeLayer(map._pingLayer); }
-          map._pingLayer = L.layerGroup().addTo(map);
-
-          snap.forEach(docSnap => {
-            const p = docSnap.data();
-            const latlng = [p.lat, p.lng];
-            // uncertainty circle for fugitive ping (uses lobbyConfig.uncertaintyM)
-            L.circle(latlng, {
-              radius: Number(uncertaintyM || 50),
-              color: '#f59f00', weight: 2, fillColor: '#f59f00', fillOpacity: 0.12, dashArray: '4,6'
-            }).addTo(map._pingLayer);
-          });
-        });
-      }
-
-      // fugitive can send pings
-      btnPing.disabled = role !== "fugitive";
+      // Enable Send ping for **both** roles (each will only see their own ping)
+      btnPing.disabled = false;
     }
 
     // Actions button (placeholder)
@@ -286,22 +298,17 @@
       toast("Actions coming soon: Decoy Ping, Delay Reveal.");
     });
 
-    // Send ping (fugitive only), writes current GPS
+    // Send ping: writes your current GPS to Firestore with your uid
     btnPing.addEventListener('click', () => {
-      if (role !== "fugitive") { toast("Only fugitives send pings"); return; }
       if (!('geolocation' in navigator)) { toast("Location not available"); return; }
+      const uid = auth.currentUser?.uid || null;
       navigator.geolocation.getCurrentPosition(async pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
         await addDoc(collection(db, "games", code, "pings"), {
-          lat, lng, role, createdAt: serverTimestamp()
+          lat, lng, role, uid, createdAt: serverTimestamp()
         });
-        // show your position locally
-        if (!myMarker) {
-          myMarker = L.circleMarker([lat, lng], { radius:8, weight:3, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:.35 }).addTo(map);
-        } else {
-          myMarker.setLatLng([lat, lng]);
-        }
-        map.setView([lat, lng], 16);
+        // Local marker already updating via watch; recenter for feedback
+        if (map) map.setView([lat, lng], Math.max(map.getZoom(), 16));
         toast("Ping sent");
       }, () => toast("Could not get location"), { enableHighAccuracy: true, timeout: 12000 });
     });
@@ -312,7 +319,7 @@
       const secretRef = doc(db, "games", code, "private", "secret");
       try{
         const snap = await getDoc(secretRef);
-        if (!snap.exists()) return; // not created yet
+        if (!snap.exists()) return;
         const { lat, lng } = snap.data();
         extractMarker = L.marker([lat, lng], {
           icon: L.divIcon({ className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>' }),
@@ -320,7 +327,7 @@
         }).addTo(map);
         toast("Extraction revealed — get within 10 meters to win.");
       }catch(e){
-        // Likely blocked by security rules until reveal time; ignore.
+        // Likely blocked by rules until reveal time; ignore.
       }
     }
   </script>
