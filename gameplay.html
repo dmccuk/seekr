@@ -164,6 +164,13 @@
     let trailLayer = null;
     let trailLine = null;
 
+    // --- NEW: end-game & presence state ---
+    let secretLL = null;          // set when extraction loads
+    let gameEnded = false;
+    let seekersNow = [];          // seekers presence cache (for fugitive)
+    let tagMeters = 2;            // from rules.tag_meters
+    let presenceTimer = null;     // seeker presence publisher
+
     // Code from URL
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
     joinCodeEl.textContent = code || "XXXXXX";
@@ -212,6 +219,22 @@
       }
     }
 
+    // --- NEW: end game helper ---
+    async function endGame(winner){
+      if (gameEnded) return;
+      gameEnded = true;
+      try{
+        await setDoc(doc(db, "games", code), {
+          status: "ended",
+          winner,
+          endedAt: serverTimestamp()
+        }, { merge:true });
+      }catch(e){
+        console.error("endGame failed", e);
+        gameEnded = false; // allow retry if write failed
+      }
+    }
+
     // Location
     function startGeoWatch(){
       if (geoWatchId) return;
@@ -232,6 +255,10 @@
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
           checkZone(pos.coords.latitude, pos.coords.longitude);
 
+          // --- NEW: win checks on initial fix ---
+          maybeCheckExtractionWin(pos.coords);
+          maybeCheckTaggedBySeeker(pos.coords);
+
           // if fugitive and interval configured, send a first ping now
           if (role === "fugitive" && autoPingEveryMs > 0 && !didInitialAutoPing) {
             didInitialAutoPing = true;
@@ -251,6 +278,10 @@
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
           checkZone(pos.coords.latitude, pos.coords.longitude);
 
+          // --- NEW: win checks on each update ---
+          maybeCheckExtractionWin(pos.coords);
+          maybeCheckTaggedBySeeker(pos.coords);
+
           // send an immediate first ping once we have a live fix
           if (role === "fugitive" && autoPingEveryMs > 0 && !didInitialAutoPing) {
             didInitialAutoPing = true;
@@ -267,6 +298,31 @@
         },
         { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
+    }
+
+    // --- NEW: extraction win (fugitive) ---
+    function maybeCheckExtractionWin(coords){
+      if (role !== "fugitive" || !secretLL || gameEnded) return;
+      const d = map.distance([coords.latitude, coords.longitude], secretLL);
+      if (d <= 10){ // 10m to extract
+        toast("You reached extraction");
+        endGame("fugitive");
+      }
+    }
+
+    // --- NEW: tagging win (seeker) ---
+    function maybeCheckTaggedBySeeker(coords){
+      if (role !== "fugitive" || !seekersNow.length || gameEnded) return;
+      const me = L.latLng(coords.latitude, coords.longitude);
+      for (const s of seekersNow){
+        if (typeof s.lat !== "number" || typeof s.lng !== "number") continue;
+        const d = map.distance(me, [s.lat, s.lng]);
+        if (d <= tagMeters){
+          toast("A seeker tagged you");
+          endGame("seeker");
+          break;
+        }
+      }
     }
 
     // Confirm my last saved ping on this device
@@ -310,23 +366,23 @@
     // Seeker trail, listen to fugitive pings and render
     function startSeekerTrail(){
       if (trailLayer) return;
-    
+
       trailLayer = L.layerGroup().addTo(map);
       trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
-    
+
       // Filter to fugitive pings, then order by createdAt
       const qTrail = query(
         collection(db, "games", code, "pings"),
         where("role", "==", "fugitive"),
         orderBy("createdAt", "asc")
       );
-    
+
       onSnapshot(qTrail, snap => {
-        console.debug("trail snapshot size:", snap.size);
+        // console.debug("trail snapshot size:", snap.size);
         snap.docChanges().forEach(ch => {
           if (ch.type !== "added") return;
           const p = ch.doc.data();
-          console.debug("trail added ping:", p);
+          // console.debug("trail added ping:", p);
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
           addTrailPoint(p.lat, p.lng, p.createdAt);
         });
@@ -334,7 +390,6 @@
         console.error("trail listener error", err);
       });
     }
-
 
     function addTrailPoint(lat, lng, createdAt){
       const ll = [lat, lng];
@@ -378,11 +433,52 @@
           radius: 8, weight: 3, color: '#ffffff', fillColor: '#ff3b30', fillOpacity: 0.95
         }).addTo(map);
 
+        // --- NEW: remember secret location for win detection
+        secretLL = L.latLng(lat, lng);
+
         map.setView([lat, lng], Math.max(map.getZoom(), 16));
         toast("Extraction revealed, get within 10 meters to win.");
       }, err => {
         console.error("Secret listener error", err);
       });
+    }
+
+    // --- NEW: seekers publish presence (every 5s) ---
+    function startPresencePublisher(){
+      if (presenceTimer || role !== "seeker") return;
+      const myId = auth.currentUser?.uid;
+      if (!myId) return;
+      const presRef = doc(db, "games", code, "presence", myId);
+
+      const publish = async () => {
+        if (!lastCoords) return;
+        try{
+          await setDoc(presRef, {
+            role: "seeker",
+            lat: lastCoords.latitude,
+            lng: lastCoords.longitude,
+            updatedAt: serverTimestamp()
+          }, { merge:true });
+        }catch(e){
+          console.warn("presence write failed", e);
+        }
+      };
+      publish();
+      presenceTimer = setInterval(publish, 5000);
+    }
+
+    // --- NEW: fugitives read seekers presence for tagging ---
+    function startReadingSeekers(){
+      if (role !== "fugitive") return;
+      const qSeekers = query(
+        collection(db, "games", code, "presence"),
+        where("role", "==", "seeker")
+      );
+      onSnapshot(qSeekers, snap => {
+        seekersNow = snap.docs
+          .map(d => d.data())
+          .filter(d => typeof d.lat === "number" && typeof d.lng === "number");
+      }, err => console.error("presence read error", err));
     }
 
     // Auth, join, then attach listeners
@@ -446,6 +542,10 @@
       const uid = auth.currentUser?.uid;
       if (uid) watchMyPings(uid);
 
+      // --- NEW: presence wiring ---
+      if (role === "seeker") startPresencePublisher();
+      if (role === "fugitive") startReadingSeekers();
+
       hint.textContent = (role === "seeker")
         ? "You only see your own location. You will be notified when extraction is revealed."
         : "You never see seeker locations. Get to extraction when it appears.";
@@ -462,6 +562,21 @@
           }
 
           const g = snap.data();
+
+          // 0) Ended?
+          if (g.status === "ended"){
+            gameEnded = true;
+            if (tickId) { clearInterval(tickId); tickId = null; }
+            if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
+            if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
+            btnPing.disabled = true;
+            timePill.textContent = "Time, round ended";
+            const msg = g.winner === "fugitive"
+              ? "Fugitive escaped, game over."
+              : "Seeker tagged the fugitive, game over.";
+            toast(msg);
+            return;
+          }
 
           // 1) Draw or update the play area
           const z = g.zone || null;
@@ -496,6 +611,9 @@
           // 2) Uncertainty from lobby config
           const cfg = g.lobbyConfig || {};
           uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
+
+          // --- NEW: tag distance from rules
+          tagMeters = Number(g.rules?.tag_meters ?? 2);
 
           // Auto pings and seeker trail control
           const pingMinutes = Number(g.rules?.ping_minutes || 0);
@@ -636,6 +754,13 @@
     });
 
     // No showExtraction. We rely on the realtime listener so the pin appears when rules allow.
+
+    // Optional: clear timers on unload
+    window.addEventListener('beforeunload', () => {
+      if (tickId) clearInterval(tickId);
+      if (autoPingId) clearInterval(autoPingId);
+      if (presenceTimer) clearInterval(presenceTimer);
+    });
   </script>
 </body>
 </html>
