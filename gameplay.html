@@ -586,7 +586,15 @@
           }
 
           const g = snap.data();
-
+          
+          // If the round hasn't started yet, send players to the lobby room
+          if (g.status === "lobby") {
+            try { toast("Waiting in lobby…"); } catch {}
+            // replace() avoids leaving a back-button trail to gameplay
+            location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
+            return; // stop processing this snapshot
+          }
+          
           // Ended?
           if (g.status === "ended"){
             gameEnded = true;
