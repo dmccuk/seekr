@@ -46,13 +46,12 @@
     .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:13px; color:#55627a; }
     .notice{ margin-top:8px; font-size:12px; color:#55627a }
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
-
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
 
-    /* Join overlay styles, in case the picker shows */
+    /* Join overlay styles (existing) */
     .overlay{ position:fixed; inset:0; background:rgba(14,18,32,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:9999; }
     .overlay .sheet{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; max-width:420px; width:min(92vw,420px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
-    .overlay h3{ margin:0 0 8px 0; font-size:18px; font-weight:800 }
+    .overlay h3{ margin:0 0 8px 0; font-size:20px; font-weight:900 }
     .overlay p{ margin:0 0 10px 0; color:var(--muted) }
     .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
     .overlay .actions .btn{ min-width:120px }
@@ -102,6 +101,17 @@
     </div>
   </div>
 
+  <!-- End-of-game overlay -->
+  <div id="end" class="overlay" role="dialog" aria-modal="true" aria-labelledby="endTitle" aria-hidden="true">
+    <div class="sheet">
+      <h3 id="endTitle">Round ended</h3>
+      <p id="endMsg">Thanks for playing.</p>
+      <div class="actions">
+        <a href="demo.html" class="btn secondary">Back</a>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
@@ -136,6 +146,11 @@
     const btnPing = document.getElementById('btnPing');
     const btnActions = document.getElementById('btnActions');
 
+    // End overlay UI
+    const endOverlay = document.getElementById('end');
+    const endTitle = document.getElementById('endTitle');
+    const endMsg = document.getElementById('endMsg');
+
     // Map related
     let map, myMarker, extractMarker;
     let uncertaintyM = 50;
@@ -164,12 +179,12 @@
     let trailLayer = null;
     let trailLine = null;
 
-    // --- NEW: end-game & presence state ---
-    let secretLL = null;          // set when extraction loads
+    // End-game & presence state
+    let secretLL = null;      // set when extraction loads
     let gameEnded = false;
-    let seekersNow = [];          // seekers presence cache (for fugitive)
-    let tagMeters = 2;            // from rules.tag_meters
-    let presenceTimer = null;     // seeker presence publisher
+    let seekersNow = [];      // seekers presence cache (for fugitive)
+    let tagMeters = 2;        // from rules.tag_meters
+    let presenceTimer = null; // seeker presence publisher
 
     // Code from URL
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
@@ -219,14 +234,25 @@
       }
     }
 
-    // --- NEW: end game helper ---
-    async function endGame(winner){
+    // End-game helpers
+    function showEndOverlay(winner, reason){
+      endTitle.textContent = winner === "fugitive" ? "Fugitive Wins!" :
+                             winner === "seeker"   ? "Seekers Win!"  : "Round Ended";
+      endMsg.textContent = winner === "fugitive"
+        ? (reason === "extract" ? "The fugitive reached extraction." : "The fugitives escaped.")
+        : (winner === "seeker" ? "A seeker tagged the fugitive." : "Game over.");
+      endOverlay.style.display = 'flex';
+      endOverlay.setAttribute('aria-hidden', 'false');
+    }
+
+    async function endGame(winner, reason = "manual"){
       if (gameEnded) return;
       gameEnded = true;
       try{
         await setDoc(doc(db, "games", code), {
           status: "ended",
           winner,
+          endReason: reason,
           endedAt: serverTimestamp()
         }, { merge:true });
       }catch(e){
@@ -251,15 +277,15 @@
 
       navigator.geolocation.getCurrentPosition(
         pos => {
-          lastCoords = pos.coords; // remember for auto pings
+          lastCoords = pos.coords;
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
           checkZone(pos.coords.latitude, pos.coords.longitude);
 
-          // --- NEW: win checks on initial fix ---
+          // Win checks on initial fix
           maybeCheckExtractionWin(pos.coords);
           maybeCheckTaggedBySeeker(pos.coords);
 
-          // if fugitive and interval configured, send a first ping now
+          // Fugitive immediate ping if interval configured
           if (role === "fugitive" && autoPingEveryMs > 0 && !didInitialAutoPing) {
             didInitialAutoPing = true;
             saveCurrentPing("start-fix").catch(()=>{});
@@ -274,15 +300,15 @@
 
       geoWatchId = navigator.geolocation.watchPosition(
         pos => {
-          lastCoords = pos.coords; // remember for auto pings
+          lastCoords = pos.coords;
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
           checkZone(pos.coords.latitude, pos.coords.longitude);
 
-          // --- NEW: win checks on each update ---
+          // Win checks on each update
           maybeCheckExtractionWin(pos.coords);
           maybeCheckTaggedBySeeker(pos.coords);
 
-          // send an immediate first ping once we have a live fix
+          // First ping from live watch
           if (role === "fugitive" && autoPingEveryMs > 0 && !didInitialAutoPing) {
             didInitialAutoPing = true;
             saveCurrentPing("start-watch").catch(()=>{});
@@ -300,17 +326,17 @@
       );
     }
 
-    // --- NEW: extraction win (fugitive) ---
+    // Extraction win (fugitive)
     function maybeCheckExtractionWin(coords){
       if (role !== "fugitive" || !secretLL || gameEnded) return;
       const d = map.distance([coords.latitude, coords.longitude], secretLL);
-      if (d <= 10){ // 10m to extract
+      if (d <= 10){ // within 10m
         toast("You reached extraction");
-        endGame("fugitive");
+        endGame("fugitive", "extract");
       }
     }
 
-    // --- NEW: tagging win (seeker) ---
+    // Tagging win (seeker)
     function maybeCheckTaggedBySeeker(coords){
       if (role !== "fugitive" || !seekersNow.length || gameEnded) return;
       const me = L.latLng(coords.latitude, coords.longitude);
@@ -319,7 +345,7 @@
         const d = map.distance(me, [s.lat, s.lng]);
         if (d <= tagMeters){
           toast("A seeker tagged you");
-          endGame("seeker");
+          endGame("seeker", "tag");
           break;
         }
       }
@@ -378,11 +404,9 @@
       );
 
       onSnapshot(qTrail, snap => {
-        // console.debug("trail snapshot size:", snap.size);
         snap.docChanges().forEach(ch => {
           if (ch.type !== "added") return;
           const p = ch.doc.data();
-          // console.debug("trail added ping:", p);
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
           addTrailPoint(p.lat, p.lng, p.createdAt);
         });
@@ -433,7 +457,7 @@
           radius: 8, weight: 3, color: '#ffffff', fillColor: '#ff3b30', fillOpacity: 0.95
         }).addTo(map);
 
-        // --- NEW: remember secret location for win detection
+        // remember secret location for win detection
         secretLL = L.latLng(lat, lng);
 
         map.setView([lat, lng], Math.max(map.getZoom(), 16));
@@ -443,7 +467,7 @@
       });
     }
 
-    // --- NEW: seekers publish presence (every 5s) ---
+    // Seekers publish presence (every 5s)
     function startPresencePublisher(){
       if (presenceTimer || role !== "seeker") return;
       const myId = auth.currentUser?.uid;
@@ -467,7 +491,7 @@
       presenceTimer = setInterval(publish, 5000);
     }
 
-    // --- NEW: fugitives read seekers presence for tagging ---
+    // Fugitives read seekers presence for tagging
     function startReadingSeekers(){
       if (role !== "fugitive") return;
       const qSeekers = query(
@@ -542,7 +566,7 @@
       const uid = auth.currentUser?.uid;
       if (uid) watchMyPings(uid);
 
-      // --- NEW: presence wiring ---
+      // Presence wiring
       if (role === "seeker") startPresencePublisher();
       if (role === "fugitive") startReadingSeekers();
 
@@ -563,7 +587,7 @@
 
           const g = snap.data();
 
-          // 0) Ended?
+          // Ended?
           if (g.status === "ended"){
             gameEnded = true;
             if (tickId) { clearInterval(tickId); tickId = null; }
@@ -571,10 +595,7 @@
             if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
             btnPing.disabled = true;
             timePill.textContent = "Time, round ended";
-            const msg = g.winner === "fugitive"
-              ? "Fugitive escaped, game over."
-              : "Seeker tagged the fugitive, game over.";
-            toast(msg);
+            showEndOverlay(g.winner || "unknown", g.endReason || "");
             return;
           }
 
@@ -612,7 +633,7 @@
           const cfg = g.lobbyConfig || {};
           uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
 
-          // --- NEW: tag distance from rules
+          // Tag distance from rules
           tagMeters = Number(g.rules?.tag_meters ?? 2);
 
           // Auto pings and seeker trail control
@@ -698,7 +719,7 @@
             return;
           }
 
-          // 4) Start or restart the countdown
+          // Start or restart the countdown
           if (tickId) clearInterval(tickId);
           const tick = () => {
             const now = Date.now();
@@ -739,7 +760,7 @@
       toast("Actions coming soon, Decoy Ping, Delay Reveal.");
     });
 
-    // Send ping
+    // Send ping (manual)
     btnPing.addEventListener('click', () => {
       if (!('geolocation' in navigator)) { toast("Location not available"); return; }
       const uid = auth.currentUser?.uid || null;
@@ -753,9 +774,7 @@
       }, () => toast("Could not get location"), { enableHighAccuracy: true, timeout: 12000 });
     });
 
-    // No showExtraction. We rely on the realtime listener so the pin appears when rules allow.
-
-    // Optional: clear timers on unload
+    // Cleanup on unload
     window.addEventListener('beforeunload', () => {
       if (tickId) clearInterval(tickId);
       if (autoPingId) clearInterval(autoPingId);
