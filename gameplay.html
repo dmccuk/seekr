@@ -330,13 +330,23 @@
             hint.textContent = "Game not found";
             return;
           }
-          const g = snap.data(); // g must be defined before using it
+      
+          // You need this line
+          const g = snap.data();
       
           // 1) Draw or update the play area
-          const z = g.zone;
-          if (z && z.center && typeof z.center.lat === "number" && typeof z.center.lng === "number" && typeof z.radius_km === "number") {
+          const z = g.zone || null;
+      
+          // Accept { center:{lat,lng}, radius_km } or { center:{lat,lng}, radius_m }
+          const hasCenter = z && z.center && typeof z.center.lat === "number" && typeof z.center.lng === "number";
+          const radiusKm =
+            z && typeof z.radius_km === "number" ? z.radius_km :
+            z && typeof z.radius_m  === "number" ? z.radius_m / 1000 :
+            null;
+      
+          if (hasCenter && typeof radiusKm === "number" && Number.isFinite(radiusKm)) {
             areaCenterLL = L.latLng(z.center.lat, z.center.lng);
-            areaRadiusM = Math.max(50, Number(z.radius_km) * 1000);
+            areaRadiusM = Math.max(50, Math.round(radiusKm * 1000));
             if (!areaCircle) {
               areaCircle = L.circle(areaCenterLL, {
                 radius: areaRadiusM,
@@ -355,6 +365,21 @@
               areaCircle.setRadius(areaRadiusM);
             }
           }
+      
+          // 2) Uncertainty...
+          const cfg = g.lobbyConfig || {};
+          uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
+      
+          // 3) Parse times...
+          // ... keep the rest of your timer code as you have it now ...
+        },
+        err => {
+          console.error("onSnapshot error for games/%s", code, err);
+          hint.textContent = "Cannot read game, check Firestore rules.";
+        }
+      );
+
+
       
           // 2) Uncertainty, used for the seeker trail circle
           const cfg = g.lobbyConfig || {};
@@ -376,19 +401,40 @@
           const endsAtMs   = toMs(g.endsAt)   || toMs(g.revealSchedule?.endAt);
           const revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
       
-          // Optional fallback, start plus duration
-          let endMs = endsAtMs;
-          if (!endMs && g.startsAt && (g.durationMs || g.rules?.game_minutes)) {
-            const startMs = toMs(g.startsAt);
-            const durMs = g.durationMs || Math.max(1, Number(g.rules?.game_minutes || 0)) * 60 * 1000;
-            if (startMs) endMs = startMs + durMs;
+          // Compute endMs with fallbacks and guards
+          let endMs = endsAtMs; // you computed endsAtMs above
+          console.log("timer debug", { startMs, endMs, now: Date.now(), msLeft: endMs ? endMs - Date.now() : null });
+          const startMs = toMs(g.startsAt);
+          
+          // Prefer an explicit durationMs if present, otherwise derive from rules.game_minutes
+          const rulesMinutes = Number(g.rules?.game_minutes || 0);
+          const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
+          
+          // If no endsAt, but we have start and a duration, derive endsAt
+          if (!endMs && startMs && durMs) endMs = startMs + durMs;
+          
+          const nowMs = Date.now();
+          
+          // If the round has a future start, show a prestart countdown
+          if (startMs && startMs > nowMs) {
+            const until = startMs - nowMs;
+            const m = Math.floor(until / 60000);
+            const s = String(Math.floor((until % 60000) / 1000)).padStart(2, "0");
+            timePill.textContent = `Starts in, ${m}:${s}`;
+            return;
           }
-      
+          
+          // If we still do not have an end, wait for the host
           if (!endMs) {
             timePill.textContent = "Time, waiting";
             return;
           }
-      
+          
+          // If the end time is already past, make that clear and do not start the interval
+          if (endMs <= nowMs) {
+            timePill.textContent = "Time, round ended";
+            return;
+          }
           // 4) Start or restart the countdown
           if (tickId) clearInterval(tickId);
           const tick = () => {
@@ -452,7 +498,7 @@
           icon: L.divIcon({ className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>' }),
           interactive:false
         }).addTo(map);
-        toast("Extraction revealed — get within 10 meters to win.");
+        toast("Extraction revealed, get within 10 meters to win.");
       }catch(e){
         // Likely blocked by rules until reveal time; ignore.
       }
