@@ -310,20 +310,23 @@
     // Seeker trail, listen to fugitive pings and render
     function startSeekerTrail(){
       if (trailLayer) return;
+    
       trailLayer = L.layerGroup().addTo(map);
       trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
-
-      // order by createdAt only, then filter in client
+    
+      // Filter to fugitive pings, then order by createdAt
       const qTrail = query(
         collection(db, "games", code, "pings"),
+        where("role", "==", "fugitive"),
         orderBy("createdAt", "asc")
       );
-
+    
       onSnapshot(qTrail, snap => {
+        console.debug("trail snapshot size:", snap.size);
         snap.docChanges().forEach(ch => {
           if (ch.type !== "added") return;
           const p = ch.doc.data();
-          if (p.role !== "fugitive") return;
+          console.debug("trail added ping:", p);
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
           addTrailPoint(p.lat, p.lng, p.createdAt);
         });
@@ -331,6 +334,7 @@
         console.error("trail listener error", err);
       });
     }
+
 
     function addTrailPoint(lat, lng, createdAt){
       const ll = [lat, lng];
