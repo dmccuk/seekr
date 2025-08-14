@@ -63,7 +63,7 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
-        <div class="tag" id="gameTag">Loading game…</div>
+        <div class="tag" id="gameTag">Loading game...</div>
       </div>
       <a href="demo.html" class="btn secondary">Back</a>
     </header>
@@ -94,7 +94,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
-    // Firebase (CDN)
+    // Firebase, CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import {
@@ -102,20 +102,20 @@
       addDoc, collection, query, where, orderBy, limit, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-    // --- YOUR FIREBASE CONFIG ---
+    // Config
     const firebaseConfig = {
       apiKey: "AIzaSyAHJuv3vZH1dMzLkihl6hNQdlHOQNg728M",
       authDomain: "seekr-426ff.firebaseapp.com",
       projectId: "seekr-426ff",
       storageBucket: "seekr-426ff.firebasestorage.app",
       messagingSenderId: "703306109182",
-      appId: "1:703306109182:web:afb04af22e974170e555af",
+      appId: "1:703306109182:web:afb04af22e974170e555af"
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // UI elements
+    // UI
     const gameTag = document.getElementById('gameTag');
     const timePill = document.getElementById('timePill');
     const hint = document.getElementById('hint');
@@ -125,13 +125,15 @@
     const btnPing = document.getElementById('btnPing');
     const btnActions = document.getElementById('btnActions');
 
-    // Map
+    // Map related
     let map, myMarker, extractMarker;
-    let uncertaintyM = 50;   // updated from lobbyConfig if present
-    let role = null;         // "fugitive" or "seeker"
-    let tickId = null;       // countdown interval id
+    let uncertaintyM = 50;
+    let role = null;
+    let tickId = null;
     let revealToastShown = false;
     let geoWatchId = null;
+
+    // Play area state
     let areaCircle = null;
     let areaCenterLL = null;
     let areaRadiusM = 0;
@@ -142,32 +144,16 @@
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
     joinCodeEl.textContent = code || "XXXXXX";
 
-    // Basic map init + immediate first fix for your dot
+    // Map init
     function initMap(){
       map = L.map('map', { zoomControl:true, attributionControl:false });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      map.setView([51.505, -0.09], 15); // temp view until we get GPS
+      map.setView([51.505, -0.09], 15);
     }
     initMap();
     startGeoWatch();
 
-    function checkZone(lat, lng){
-      if (!areaCenterLL || !areaRadiusM) return;
-      const d = map.distance([lat, lng], areaCenterLL);
-      const outside = d > areaRadiusM;
-      if (outside && !wasOutside){
-        wasOutside = true;
-        toast('You left the play area');
-        if (myMarker) myMarker.setStyle({ color:'#b00020', fillColor:'#b00020' });
-      } else if (!outside && wasOutside){
-        wasOutside = false;
-        toast('Back inside the play area');
-        if (myMarker) myMarker.setStyle({ color:'#1e4cff', fillColor:'#1e4cff' });
-      }
-    }
-
-
-    // Create/update my dot
+    // Helpers
     function updateMyMarker(lat, lng, recenter = false){
       const ll = [lat, lng];
       if (!myMarker) {
@@ -187,10 +173,25 @@
       toastEl._t = setTimeout(() => toastEl.style.display = 'none', 2200);
     }
 
-    // Start a local geolocation watch so each player sees their own live position
+    function checkZone(lat, lng){
+      if (!areaCenterLL || !areaRadiusM) return;
+      const d = map.distance([lat, lng], areaCenterLL);
+      const outside = d > areaRadiusM;
+      if (outside && !wasOutside){
+        wasOutside = true;
+        toast('You left the play area');
+        if (myMarker) myMarker.setStyle({ color:'#b00020', fillColor:'#b00020' });
+      } else if (!outside && wasOutside){
+        wasOutside = false;
+        toast('Back inside the play area');
+        if (myMarker) myMarker.setStyle({ color:'#1e4cff', fillColor:'#1e4cff' });
+      }
+    }
+
+    // Location
     function startGeoWatch(){
       if (geoWatchId) return;
-    
+
       const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
       if (!window.isSecureContext && !isLocalhost) {
         toast('Location needs HTTPS or localhost.');
@@ -200,8 +201,7 @@
         toast('Geolocation not available in this browser.');
         return;
       }
-    
-      // One high accuracy fix to create the dot and center the map
+
       navigator.geolocation.getCurrentPosition(
         pos => {
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
@@ -213,8 +213,7 @@
         },
         { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
-    
-      // Then keep it updated
+
       geoWatchId = navigator.geolocation.watchPosition(
         pos => {
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
@@ -232,7 +231,7 @@
       );
     }
 
-    // Watch only my own pings (useful if I send from another device / confirm save)
+    // Confirm my last saved ping on this device
     function watchMyPings(uid){
       const qMy = query(
         collection(db, "games", code, "pings"),
@@ -254,24 +253,24 @@
       });
     }
 
+    // Auth, join, then attach listeners
     onAuthStateChanged(auth, async user => {
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
-    
+
       const urlParams = new URL(location.href).searchParams;
-      const roleHint = urlParams.get('as'); // "fugitive" or "seeker"
-    
+      const roleHint = urlParams.get('as');
+
       const memberRef = doc(db, "games", code, "members", user.uid);
       let storedRole = null;
-    
+
       try {
         const memberSnap = await getDoc(memberRef);
         storedRole = memberSnap.exists() ? (memberSnap.data().role || null) : null;
       } catch (e) {
         console.warn("Cannot read membership, will try to join directly", e);
       }
-    
-      // If not a member yet, try to create the membership using the URL hint
+
       if (!storedRole && (roleHint === "fugitive" || roleHint === "seeker")) {
         role = roleHint;
         try {
@@ -285,8 +284,7 @@
           return;
         }
       }
-    
-      // If role already existed, use it, otherwise show picker
+
       role = storedRole || null;
       if (!role) {
         join.style.display = 'flex';
@@ -299,51 +297,48 @@
         };
         return;
       }
-    
+
       afterJoin();
     });
 
     signInAnonymously(auth).catch(console.error);
 
     function afterJoin(){
-      // Hide join, update header
       join.style.display = 'none';
       join.setAttribute('aria-hidden', 'true');
       setTimeout(() => map.invalidateSize(), 0);
       gameTag.textContent = "Game " + code + " • You are " + role;
-    
+
       startGeoWatch();
-    
+
       const uid = auth.currentUser?.uid;
       if (uid) watchMyPings(uid);
-    
-      // Hint text based on role
+
       hint.textContent = (role === "seeker")
         ? "You only see your own location. You will be notified when extraction is revealed."
         : "You never see seeker locations. Get to extraction when it appears.";
-    
+
       // Subscribe to game doc, times and config
       const gameRef = doc(db, "games", code);
-      onSnapshot(gameRef,
+      onSnapshot(
+        gameRef,
         snap => {
           if (!snap.exists()) {
             hint.textContent = "Game not found";
+            if (tickId) { clearInterval(tickId); tickId = null; }
             return;
           }
-      
-          // You need this line
+
           const g = snap.data();
-      
+
           // 1) Draw or update the play area
           const z = g.zone || null;
-      
-          // Accept { center:{lat,lng}, radius_km } or { center:{lat,lng}, radius_m }
           const hasCenter = z && z.center && typeof z.center.lat === "number" && typeof z.center.lng === "number";
           const radiusKm =
             z && typeof z.radius_km === "number" ? z.radius_km :
             z && typeof z.radius_m  === "number" ? z.radius_m / 1000 :
             null;
-      
+
           if (hasCenter && typeof radiusKm === "number" && Number.isFinite(radiusKm)) {
             areaCenterLL = L.latLng(z.center.lat, z.center.lng);
             areaRadiusM = Math.max(50, Math.round(radiusKm * 1000));
@@ -365,77 +360,62 @@
               areaCircle.setRadius(areaRadiusM);
             }
           }
-      
-          // 2) Uncertainty...
+
+          // 2) Uncertainty from lobby config
           const cfg = g.lobbyConfig || {};
           uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
-      
-          // 3) Parse times...
-          // ... keep the rest of your timer code as you have it now ...
-        },
-        err => {
-          console.error("onSnapshot error for games/%s", code, err);
-          hint.textContent = "Cannot read game, check Firestore rules.";
-        }
-      );
 
-
-      
-          // 2) Uncertainty, used for the seeker trail circle
-          const cfg = g.lobbyConfig || {};
-          uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
-      
           // 3) Parse times
           const toMs = (v) => {
             if (!v) return 0;
-            if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+            if (typeof v === "number") return v < 1e12 ? v * 1000 : v; // seconds or ms
             if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
-            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
+            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis(); // Firestore Timestamp
             if (typeof v === "object" && typeof v.toDate === "function") return v.toDate().getTime();
             if (typeof v === "object" && typeof v.seconds === "number") {
               return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
             }
             return 0;
           };
-      
+
           const endsAtMs   = toMs(g.endsAt)   || toMs(g.revealSchedule?.endAt);
           const revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
-      
-          // Compute endMs with fallbacks and guards
-          let endMs = endsAtMs; // you computed endsAtMs above
-          console.log("timer debug", { startMs, endMs, now: Date.now(), msLeft: endMs ? endMs - Date.now() : null });
-          const startMs = toMs(g.startsAt);
-          
-          // Prefer an explicit durationMs if present, otherwise derive from rules.game_minutes
+          const startMs    = toMs(g.startsAt);
+
+          // 4) Compute endMs with fallbacks and guards
           const rulesMinutes = Number(g.rules?.game_minutes || 0);
           const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
-          
-          // If no endsAt, but we have start and a duration, derive endsAt
+
+          let endMs = endsAtMs;
           if (!endMs && startMs && durMs) endMs = startMs + durMs;
-          
+
           const nowMs = Date.now();
-          
-          // If the round has a future start, show a prestart countdown
+
+          // Future start, show prestart countdown
           if (startMs && startMs > nowMs) {
             const until = startMs - nowMs;
             const m = Math.floor(until / 60000);
             const s = String(Math.floor((until % 60000) / 1000)).padStart(2, "0");
             timePill.textContent = `Starts in, ${m}:${s}`;
+            if (tickId) { clearInterval(tickId); tickId = null; }
             return;
           }
-          
-          // If we still do not have an end, wait for the host
+
+          // No end, not started
           if (!endMs) {
             timePill.textContent = "Time, waiting";
+            if (tickId) { clearInterval(tickId); tickId = null; }
             return;
           }
-          
-          // If the end time is already past, make that clear and do not start the interval
+
+          // End already passed
           if (endMs <= nowMs) {
             timePill.textContent = "Time, round ended";
+            if (tickId) { clearInterval(tickId); tickId = null; }
             return;
           }
-          // 4) Start or restart the countdown
+
+          // 5) Start or restart the countdown
           if (tickId) clearInterval(tickId);
           const tick = () => {
             const now = Date.now();
@@ -443,7 +423,7 @@
             const m = Math.floor(left / 60000);
             const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
             timePill.textContent = `Time, ${m}:${s}`;
-      
+
             // Reveal extraction for fugitives
             if (role === "fugitive" && revealAtMs && now >= revealAtMs) { showExtraction().catch(() => {}); }
             // Notify seekers when reveal happens
@@ -459,6 +439,7 @@
         err => {
           console.error("onSnapshot error for games/%s", code, err);
           hint.textContent = "Cannot read game, check Firestore rules.";
+          if (tickId) { clearInterval(tickId); tickId = null; }
         }
       );
 
@@ -466,12 +447,12 @@
       btnPing.disabled = false;
     }
 
-    // Actions button (placeholder)
+    // Actions button
     btnActions.addEventListener('click', () => {
-      toast("Actions coming soon: Decoy Ping, Delay Reveal.");
+      toast("Actions coming soon, Decoy Ping, Delay Reveal.");
     });
 
-    // Send ping: writes your current GPS to Firestore with your uid
+    // Send ping
     btnPing.addEventListener('click', () => {
       if (!('geolocation' in navigator)) { toast("Location not available"); return; }
       const uid = auth.currentUser?.uid || null;
@@ -480,15 +461,14 @@
         await addDoc(collection(db, "games", code, "pings"), {
           lat, lng, role, uid, createdAt: serverTimestamp()
         });
-        // Local marker already updating via watch; recenter for feedback
         if (map) map.setView([lat, lng], Math.max(map.getZoom(), 16));
         toast("Ping sent");
       }, () => toast("Could not get location"), { enableHighAccuracy: true, timeout: 12000 });
     });
 
-    // Fetch and display extraction for fugitives, only after reveal time
+    // Extraction for fugitives, after reveal
     async function showExtraction(){
-      if (extractMarker) return; // already shown
+      if (extractMarker) return;
       const secretRef = doc(db, "games", code, "private", "secret");
       try{
         const snap = await getDoc(secretRef);
@@ -498,9 +478,10 @@
           icon: L.divIcon({ className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>' }),
           interactive:false
         }).addTo(map);
+        map.setView([lat, lng], Math.max(map.getZoom(), 16));
         toast("Extraction revealed, get within 10 meters to win.");
       }catch(e){
-        // Likely blocked by rules until reveal time; ignore.
+        // Usually blocked by rules until reveal time, ignore
       }
     }
   </script>
