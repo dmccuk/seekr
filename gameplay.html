@@ -137,15 +137,27 @@
     let code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
     joinCodeEl.textContent = code || "XXXXXX";
 
-    // Basic map init
-    function initMap(lat=51.505, lng=-0.09){
+    // Basic map init + immediate first fix for your dot
+    function initMap(){
       map = L.map('map', { zoomControl:true, attributionControl:false });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      map.setView([lat, lng], 15);
+      map.setView([51.505, -0.09], 15); // temp view until we get GPS
     }
-    if (location.protocol === 'https:' && 'geolocation' in navigator){
-      navigator.geolocation.getCurrentPosition(p => initMap(p.coords.latitude, p.coords.longitude), () => initMap());
-    } else { initMap(); }
+    initMap();
+    startGeoWatch();
+    
+    // Create/update my dot
+    function updateMyMarker(lat, lng, recenter = false){
+      const ll = [lat, lng];
+      if (!myMarker) {
+        myMarker = L.circleMarker(ll, {
+          radius: 8, weight: 3, color: '#1e4cff', fillColor: '#1e4cff', fillOpacity: .35
+        }).addTo(map);
+      } else {
+        myMarker.setLatLng(ll);
+      }
+      if (recenter && map) map.setView(ll, Math.max(map.getZoom(), 16));
+    }
 
     function toast(t){
       toastEl.textContent = t;
@@ -156,18 +168,47 @@
 
     // Start a local geolocation watch so each player sees their own live position
     function startGeoWatch(){
-      if (!('geolocation' in navigator)) return;
       if (geoWatchId) return;
-      geoWatchId = navigator.geolocation.watchPosition(p => {
-        const ll = [p.coords.latitude, p.coords.longitude];
-        if (!myMarker) {
-          myMarker = L.circleMarker(ll, { radius:8, weight:3, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:.35 }).addTo(map);
-          if (map) map.setView(ll, 16);
-        } else {
-          myMarker.setLatLng(ll);
-        }
-      }, () => {}, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+    
+      if (location.protocol !== 'https:'){
+        toast('Location needs HTTPS (your domain is fine).');
+        return;
+      }
+      if (!('geolocation' in navigator)){
+        toast('Geolocation not available in this browser.');
+        return;
+      }
+    
+      // First, get one high-accuracy fix to create the dot and center the map
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
+        },
+        err => {
+          console.warn('getCurrentPosition error', err);
+          toast('Please allow location to see your dot.');
+        },
+        { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
+      );
+    
+      // Then, keep it updated in real time
+      geoWatchId = navigator.geolocation.watchPosition(
+        pos => {
+          updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
+        },
+        err => {
+          console.warn('watchPosition error', err);
+          // Only notify once in a while to avoid toast spam
+          if (!startGeoWatch._errShown){
+            toast('Lost location updates. Move outside or check permissions.');
+            startGeoWatch._errShown = true;
+            setTimeout(()=> startGeoWatch._errShown = false, 8000);
+          }
+        },
+        { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
+      );
     }
+
 
     // Watch only my own pings (useful if I send from another device / confirm save)
     function watchMyPings(uid){
