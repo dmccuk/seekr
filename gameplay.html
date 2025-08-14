@@ -274,38 +274,44 @@
     signInAnonymously(auth).catch(console.error);
 
     function afterJoin(){
+      // Hide join, update header
       join.style.display = 'none';
       join.setAttribute('aria-hidden', 'true');
+      setTimeout(() => map.invalidateSize(), 0);
       gameTag.textContent = "Game " + code + " • You are " + role;
-
-      startGeoWatch(); // always show my live location locally
-
+    
+      startGeoWatch();
+    
       const uid = auth.currentUser?.uid;
-      if (uid) watchMyPings(uid); // reflect my last saved ping
-
+      if (uid) watchMyPings(uid);
+    
+      // Hint text based on role
+      hint.textContent = (role === "seeker")
+        ? "You only see your own location. You will be notified when extraction is revealed."
+        : "You never see seeker locations. Get to extraction when it appears.";
+    
       // Subscribe to game doc, times and config
       const gameRef = doc(db, "games", code);
       onSnapshot(gameRef, snap => {
-        if (!snap.exists()) { 
-          hint.textContent = "Game not found"; 
-          return; 
+        if (!snap.exists()) {
+          hint.textContent = "Game not found";
+          return;
         }
         const g = snap.data();
-      
-        // Now it is safe to log
-        console.log("game doc raw times", { 
-          endsAt: g.endsAt, 
-          revealAt: g.revealAt, 
-          startsAt: g.startsAt, 
-          rules: g.rules, 
-          durationMs: g.durationMs 
+    
+        console.log("game doc raw times", {
+          endsAt: g.endsAt,
+          revealAt: g.revealAt,
+          startsAt: g.startsAt,
+          rules: g.rules,
+          durationMs: g.durationMs
         });
-      
-        // Get uncertainty, various shapes supported
+    
+        // Uncertainty
         const cfg = g.lobbyConfig || {};
         uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
-      
-        // Normalize times, Timestamp, number in seconds or milliseconds, ISO string, or {seconds,nanoseconds}
+    
+        // Timestamp normalizer
         const toMs = (v) => {
           if (!v) return 0;
           if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
@@ -316,24 +322,23 @@
           }
           return 0;
         };
-      
+    
         const endsAtMs   = toMs(g.endsAt)   || toMs(g.revealSchedule?.endAt);
         const revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
-      
-        // Optional fallback, start plus duration
+    
+        // Fallback, start plus duration
         let endMs = endsAtMs;
         if (!endMs && g.startsAt && (g.durationMs || g.rules?.game_minutes)) {
           const startMs = toMs(g.startsAt);
           const durMs = g.durationMs || Math.max(1, Number(g.rules?.game_minutes || 0)) * 60 * 1000;
           if (startMs) endMs = startMs + durMs;
         }
-      
+    
         if (!endMs) {
-          hint.textContent = "Waiting for host to start";
           timePill.textContent = "Time, waiting";
           return;
         }
-      
+    
         // Start or restart the countdown
         if (tickId) clearInterval(tickId);
         const tick = () => {
@@ -342,26 +347,22 @@
           const m = Math.floor(left / 60000);
           const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
           timePill.textContent = `Time, ${m}:${s}`;
-      
+    
           if (role === "fugitive" && revealAtMs && now >= revealAtMs) { showExtraction().catch(() => {}); }
-          if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) { 
-            toast("Extraction location has been disclosed to fugitives."); 
-            revealToastShown = true; 
+          if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) {
+            toast("Extraction location has been disclosed to fugitives.");
+            revealToastShown = true;
           }
           if (left === 0) { clearInterval(tickId); tickId = null; }
         };
         tick();
         tickId = setInterval(tick, 1000);
-
-        // Hints
-        hint.textContent = (role === "seeker")
-          ? "You only see your own location. You’ll be notified when extraction is revealed."
-          : "You never see seeker locations. Get to extraction when it appears.";
       });
-
-      // Enable Send ping for **both** roles (each will only see their own ping)
+    
+      // Enable Send ping for both roles
       btnPing.disabled = false;
     }
+
 
     // Actions button (placeholder)
     btnActions.addEventListener('click', () => {
