@@ -114,7 +114,7 @@
     }
 
     /* Chat */
-    .chat{ margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+    .chat{ margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; }
     .chat-log{
       max-height:140px; overflow:auto;
       padding:8px 10px; display:flex; flex-direction:column; gap:6px;
@@ -127,6 +127,12 @@
     .chat-form input{
       flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-family:inherit;
       background:#fff;
+    }
+
+    /* Mobile: stack chat input and Send button, button below on the left */
+    @media (max-width: 640px){
+      .chat-form{ flex-direction:column; gap:6px; }
+      .chat-form .btn{ align-self:flex-start; }
     }
   </style>
 </head>
@@ -586,6 +592,25 @@
       }
     }
 
+    // Save a ping for the current player (used by fugitive auto-ping & round start)
+    async function saveCurrentPing(reason = "manual"){
+      try{
+        if (!lastCoords || !code) return;
+        const uid = auth.currentUser?.uid || null;
+        await addDoc(collection(db, "games", code, "pings"), {
+          lat: lastCoords.latitude,
+          lng: lastCoords.longitude,
+          role, uid, reason,
+          createdAt: serverTimestamp()
+        });
+        // Show my own breadcrumb if I'm the fugitive
+        if (role === "fugitive"){
+          addLocalFugitivePing(lastCoords.latitude, lastCoords.longitude, new Date());
+          lastFugPingLL = L.latLng(lastCoords.latitude, lastCoords.longitude);
+        }
+      }catch(e){ console.warn("saveCurrentPing failed", e); }
+    }
+
     // Location
     function startGeoWatch(){
       if (geoWatchId) return;
@@ -755,11 +780,13 @@
             seekersLive.set(docu.id, { lat:d.lat, lng:d.lng, updatedAt:d.updatedAt });
           }
         });
-        if (!seekersRenderTimer) renderSeekersImmediate();
+        // Render immediately on every snapshot (fixes one-way visibility)
+        renderSeekersImmediate();
       });
       unsubs.push(u2);
 
-      seekersRenderTimer = setInterval(renderSeekersImmediate, SEEKERS_RENDER_MS);
+      // Smaller fallback repaint
+      if (!seekersRenderTimer) seekersRenderTimer = setInterval(renderSeekersImmediate, 15000);
     }
     function renderSeekersImmediate(){
       if (!seekersLayer) return;
