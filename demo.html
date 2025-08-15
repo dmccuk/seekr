@@ -166,7 +166,7 @@
         <div class="two" style="margin-top:10px;">
           <div class="stack">
             <label for="radiusKm">Area radius, km</label>
-            <input id="radiusKm" type="number" min="0.2" max="50" step="0.1" value="0.6" />
+            <input id="radiusKm" type="number" min="0.2" max="200" step="0.1" value="0.6" />
           </div>
           <div class="stack">
             <label class="muted">Center, drag the pin</label>
@@ -316,7 +316,7 @@
     }
 
     radiusInput.addEventListener('input', () => {
-      const km = clamp(Number(radiusInput.value), 0.2, 50, 0.6);
+      const km = clamp(Number(radiusInput.value), 0.2, 200, 0.6);
       if (areaCircle) areaCircle.setRadius(km * 1000);
     });
     uncertaintyInput.addEventListener('input', () => {
@@ -584,7 +584,7 @@
       const p = parseFloat(url.searchParams.get('p'));
       const t = parseFloat(url.searchParams.get('t'));
       if(code){ codeEl.textContent = code; }
-      if(Number.isFinite(r)){ radiusKm.value = clampNum(r, 0.2, 50, 0.6); radiusKm.dispatchEvent(new Event('input')); }
+      if(Number.isFinite(r)){ radiusKm.value = clampNum(r, 0.2, 200, 0.6); radiusKm.dispatchEvent(new Event('input')); }
       if(Number.isFinite(u)){ uncertaintyM.value = clampNum(u, 10, 200, 50); uncertaintyM.dispatchEvent(new Event('input')); }
       if(Number.isFinite(g)){ gameLen.value = clampNum(g, 5, 240, 30); autoSetRevealIfNotDirty(); }
       if(Number.isFinite(p)){ pingMins.value = clampNum(p, 1, 15, 5); }
