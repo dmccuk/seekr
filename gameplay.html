@@ -112,6 +112,22 @@
       position:absolute; right:16px; bottom:16px; z-index:800;
       padding:10px 12px;
     }
+
+    /* Chat */
+    .chat{ margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+    .chat-log{
+      max-height:140px; overflow:auto;
+      padding:8px 10px; display:flex; flex-direction:column; gap:6px;
+    }
+    .chat-msg{ display:flex; gap:8px; align-items:flex-start; font-size:13px; }
+    .chat-msg .name{ font-weight:800; color:var(--brand); }
+    .chat-msg .text{ color:var(--ink); }
+    .chat-msg .time{ font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
+    .chat-form{ display:flex; gap:8px; border-top:1px solid var(--line); padding:8px; }
+    .chat-form input{
+      flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-family:inherit;
+      background:#fff;
+    }
   </style>
 </head>
 <body>
@@ -167,6 +183,15 @@
         <span id="timePill" class="pill">Time, syncing…</span>
       </div>
       <div id="hint" class="notice"></div>
+
+      <!-- Global game chat -->
+      <div class="chat" aria-label="Game chat">
+        <div id="chatLog" class="chat-log" aria-live="polite"></div>
+        <form id="chatForm" class="chat-form" autocomplete="off">
+          <input id="chatInput" type="text" placeholder="Message everyone…" maxlength="280" aria-label="Chat message" />
+          <button class="btn" type="submit" aria-label="Send message">Send</button>
+        </form>
+      </div>
     </section>
   </div>
 
@@ -227,6 +252,11 @@
     const endTitle  = document.getElementById('endTitle');
     const endMsg    = document.getElementById('endMsg');
 
+    // Chat refs
+    const chatLog   = document.getElementById('chatLog');
+    const chatForm  = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+
     // Testing UI
     const btnTesting = document.getElementById('btnTesting');
     const testingPanel = document.getElementById('testingPanel');
@@ -248,6 +278,7 @@
     // Map + game state
     let map, myMarker, extractMarker;
     let role = null;
+    let myName = "Player";
     let uncertaintyM = 50;
     let tagMeters = 2;
     let tickId = null;
@@ -492,25 +523,6 @@
 
     // Code
     const code = url.searchParams.get("code")?.toUpperCase() || "";
-
-    /* Write fugitive pings so seekers can see them */
-    async function saveCurrentPing(reason = "manual"){
-      try{
-        if (role !== "fugitive") return;               // only fugitives publish
-        const uid = auth.currentUser?.uid || null;
-        if (!uid || !lastCoords) return;               // need auth + location
-        await addDoc(collection(db, "games", code, "pings"), {
-          lat: lastCoords.latitude,
-          lng: lastCoords.longitude,
-          role: "fugitive",
-          uid,
-          reason,
-          createdAt: serverTimestamp()
-        });
-      }catch(e){
-        console.warn("saveCurrentPing failed:", e);
-      }
-    }
 
     // Map init (prefer Canvas renderer)
     function initMap(){
@@ -839,6 +851,58 @@
       tickId = setInterval(tick, 1000);
     }
 
+    // --- Chat ---
+    function startChat(){
+      if (!code) return;
+      const qChat = query(collection(db, "games", code, "chat"), orderBy("createdAt", "asc"), limit(200));
+      const u = onSnapshot(qChat, snap => {
+        // Rebuild quickly for simplicity/ordering
+        chatLog.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        snap.forEach(docu => {
+          const d = docu.data() || {};
+          if (typeof d.text !== "string") return;
+          frag.appendChild(renderChatMsg(d));
+        });
+        chatLog.appendChild(frag);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }, err => console.error("chat listener error", err));
+      unsubs.push(u);
+
+      chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const txt = (chatInput.value || '').trim();
+        if (!txt) return;
+        chatInput.value = '';
+        try{
+          const uid = auth.currentUser?.uid || null;
+          await addDoc(collection(db, "games", code, "chat"), {
+            uid, name: myName, role, text: txt, createdAt: serverTimestamp()
+          });
+        }catch(e){ console.warn("chat send failed", e); toast("Could not send message"); }
+      });
+    }
+    function renderChatMsg(d){
+      const row = document.createElement('div');
+      row.className = 'chat-msg';
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = d.name || 'Player';
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = d.text; // safe: no HTML injection
+      const time = document.createElement('span');
+      time.className = 'time';
+      const when = d.createdAt?.toDate?.() || new Date();
+      const hh = String(when.getHours()).padStart(2,'0');
+      const mm = String(when.getMinutes()).padStart(2,'0');
+      time.textContent = `${hh}:${mm}`;
+      row.appendChild(name);
+      row.appendChild(text);
+      row.appendChild(time);
+      return row;
+    }
+
     // Auth + wire up
     onAuthStateChanged(auth, async user => {
       if (!user) return;
@@ -849,7 +913,11 @@
       let storedRole = null;
       try {
         const m = await getDoc(memberRef);
-        storedRole = m.exists() ? (m.data().role || null) : null;
+        if (m.exists()){
+          const md = m.data() || {};
+          storedRole = md.role || null;
+          myName = String(md.name || md.displayName || md.nickname || "Player");
+        }
       } catch (e) { console.warn("Cannot read membership; open the lobby first to join.", e); }
       role = storedRole || null;
       if (!role) { location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
@@ -863,6 +931,9 @@
 
       if (role === "seeker") { startPresencePublisher(); startSeekersVisualizer(); }
       if (role === "fugitive") { startReadingSeekersForFugitive(); }
+
+      // Start chat after we know who we are
+      startChat();
 
       const gameRef = doc(db, "games", code);
 
@@ -933,10 +1004,7 @@
 
           // Times & countdown
           const { startMs, endMs, revealAtMs } = computeTimes(g);
-          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
-            saveCurrentPing("round-start").catch(()=>{});
-            didInitialAutoPing = true;
-          }
+          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) { saveCurrentPing("round-start").catch(()=>{}); didInitialAutoPing = true; }
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) { startSecretListener(); }
           startCountdown({ startMs, endMs, revealAtMs });
         },
