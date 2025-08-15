@@ -318,7 +318,7 @@
         const u = Math.random(), v = Math.random();
         const r = Math.sqrt(u) * (areaRadiusM * 0.85);
         const th = 2 * Math.PI * v;
-               const dx = Math.cos(th) * r, dy = Math.sin(th) * r;
+        const dx = Math.cos(th) * r, dy = Math.sin(th) * r;
         const [lat, lng] = llFromOffset(areaCenterLL.lat, areaCenterLL.lng, dx, dy);
         const marker = L.circleMarker([lat, lng], {
           radius: 5, weight: 2, color: '#000000', fillColor: '#000000', fillOpacity: 0.9
@@ -492,6 +492,25 @@
 
     // Code
     const code = url.searchParams.get("code")?.toUpperCase() || "";
+
+    /* Write fugitive pings so seekers can see them */
+    async function saveCurrentPing(reason = "manual"){
+      try{
+        if (role !== "fugitive") return;               // only fugitives publish
+        const uid = auth.currentUser?.uid || null;
+        if (!uid || !lastCoords) return;               // need auth + location
+        await addDoc(collection(db, "games", code, "pings"), {
+          lat: lastCoords.latitude,
+          lng: lastCoords.longitude,
+          role: "fugitive",
+          uid,
+          reason,
+          createdAt: serverTimestamp()
+        });
+      }catch(e){
+        console.warn("saveCurrentPing failed:", e);
+      }
+    }
 
     // Map init (prefer Canvas renderer)
     function initMap(){
@@ -914,7 +933,10 @@
 
           // Times & countdown
           const { startMs, endMs, revealAtMs } = computeTimes(g);
-          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) { saveCurrentPing("round-start").catch(()=>{}); didInitialAutoPing = true; }
+          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
+            saveCurrentPing("round-start").catch(()=>{});
+            didInitialAutoPing = true;
+          }
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) { startSecretListener(); }
           startCountdown({ startMs, endMs, revealAtMs });
         },
