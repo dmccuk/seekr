@@ -48,13 +48,13 @@
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
 
-    /* Join overlay styles (existing) */
+    /* Join overlay */
     .overlay{ position:fixed; inset:0; background:rgba(14,18,32,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:9999; }
     .overlay .sheet{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; max-width:420px; width:min(92vw,420px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
     .overlay h3{ margin:0 0 8px 0; font-size:20px; font-weight:900 }
     .overlay p{ margin:0 0 10px 0; color:var(--muted) }
     .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
-    .overlay .actions .btn{ min-width:120px }
+    .overlay .actions .btn{ min-width:160px }
 
     /* time labels for seeker trail pings */
     .leaflet-tooltip.trailLabel{
@@ -83,20 +83,19 @@
       <div class="hud">
         <span id="timePill" class="pill">Time, 00:00</span>
         <button id="btnActions" class="btn secondary" type="button">Actions</button>
-        <button id="btnPing" class="btn" type="button">Send ping</button>
+        <button id="btnPing" class="btn" type="button" disabled>Send ping</button>
       </div>
       <div id="hint" class="notice"></div>
     </section>
   </div>
 
-  <!-- Join overlay -->
+  <!-- Join overlay (single CTA to Lobby) -->
   <div id="join" class="overlay" role="dialog" aria-modal="true" aria-labelledby="joinTitle" aria-hidden="true">
     <div class="sheet">
-      <h3 id="joinTitle">Join this round</h3>
-      <p>Pick a side for code <strong id="joinCode">XXXXXX</strong>. You can open this on multiple phones.</p>
+      <h3 id="joinTitle">Enter the lobby</h3>
+      <p>Share code <strong id="joinCode">XXXXXX</strong> with your friends. Pick roles in the lobby, then the host starts the round.</p>
       <div class="actions">
-        <button id="btnJoinF" class="btn" type="button">Fugitive</button>
-        <button id="btnJoinS" class="btn secondary" type="button">Seeker</button>
+        <button id="btnEnterLobby" class="btn" type="button">Enter lobby</button>
       </div>
     </div>
   </div>
@@ -143,6 +142,7 @@
     const toastEl = document.getElementById('toast');
     const join = document.getElementById('join');
     const joinCodeEl = document.getElementById('joinCode');
+    const btnEnterLobby = document.getElementById('btnEnterLobby');
     const btnPing = document.getElementById('btnPing');
     const btnActions = document.getElementById('btnActions');
 
@@ -423,7 +423,6 @@
         radius: 5, weight: 2, color: trailColor, fillColor: trailColor, fillOpacity: 0.9
       }).addTo(trailLayer);
 
-      // optional uncertainty halo
       if (uncertaintyM > 0) {
         L.circle(ll, { radius: uncertaintyM, color: trailColor, weight:1, opacity:0.4, fillOpacity:0.08 }).addTo(trailLayer);
       }
@@ -452,12 +451,10 @@
         const { lat, lng } = snap.data() || {};
         if (typeof lat !== "number" || typeof lng !== "number") return;
 
-        // red pin with white outline
         extractMarker = L.circleMarker([lat, lng], {
           radius: 8, weight: 3, color: '#ffffff', fillColor: '#ff3b30', fillOpacity: 0.95
         }).addTo(map);
 
-        // remember secret location for win detection
         secretLL = L.latLng(lat, lng);
 
         map.setView([lat, lng], Math.max(map.getZoom(), 16));
@@ -510,9 +507,6 @@
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
 
-      const urlParams = new URL(location.href).searchParams;
-      const roleHint = urlParams.get('as');
-
       const memberRef = doc(db, "games", code, "members", user.uid);
       let storedRole = null;
 
@@ -520,34 +514,18 @@
         const memberSnap = await getDoc(memberRef);
         storedRole = memberSnap.exists() ? (memberSnap.data().role || null) : null;
       } catch (e) {
-        console.warn("Cannot read membership, will try to join directly", e);
-      }
-
-      if (!storedRole && (roleHint === "fugitive" || roleHint === "seeker")) {
-        role = roleHint;
-        try {
-          await setDoc(memberRef, { role, tokens: 500 }, { merge: true });
-          toast(`Joined as ${role}`);
-          afterJoin();
-          return;
-        } catch (e) {
-          console.error("Cannot create membership", e);
-          toast("Cannot join game, check Firestore rules for /games/{code}/members/{uid}");
-          return;
-        }
+        console.warn("Cannot read membership", e);
       }
 
       role = storedRole || null;
       if (!role) {
+        // No role yet: funnel into the lobby
         join.style.display = 'flex';
         join.setAttribute('aria-hidden', 'false');
-        document.getElementById('btnJoinF').onclick = async () => {
-          role = "fugitive"; await setDoc(memberRef, { role, tokens: 500 }, { merge: true }); afterJoin();
+        btnEnterLobby.onclick = () => {
+          location.href = `lobby.html?code=${encodeURIComponent(code)}`;
         };
-        document.getElementById('btnJoinS').onclick = async () => {
-          role = "seeker"; await setDoc(memberRef, { role, tokens: 500 }, { merge: true }); afterJoin();
-        };
-        return;
+        return; // stop wiring gameplay until a role is picked in the lobby
       }
 
       afterJoin();
@@ -586,15 +564,14 @@
           }
 
           const g = snap.data();
-          
+
           // If the round hasn't started yet, send players to the lobby room
           if (g.status === "lobby") {
             try { toast("Waiting in lobby…"); } catch {}
-            // replace() avoids leaving a back-button trail to gameplay
             location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
-            return; // stop processing this snapshot
+            return;
           }
-          
+
           // Ended?
           if (g.status === "ended"){
             gameEnded = true;
@@ -649,15 +626,13 @@
           const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
 
           if (role === "fugitive") {
-            // restart interval if cadence changed
             if (autoPingId && autoPingEveryMs !== desiredMs) {
               clearInterval(autoPingId);
               autoPingId = null;
             }
             if (!autoPingId && desiredMs > 0) {
               autoPingEveryMs = desiredMs;
-              didInitialAutoPing = false; // will send once we have a fix
-              // send one immediately if we already have a GPS fix
+              didInitialAutoPing = false;
               if (lastCoords) saveCurrentPing("interval-start").catch(()=>{});
               autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
             }
@@ -669,9 +644,9 @@
           // 3) Parse times
           const toMs = (v) => {
             if (!v) return 0;
-            if (typeof v === "number") return v < 1e12 ? v * 1000 : v; // seconds or ms
+            if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
             if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
-            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis(); // Firestore Timestamp
+            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
             if (typeof v === "object" && typeof v.toDate === "function") return v.toDate().getTime();
             if (typeof v === "object" && typeof v.seconds === "number") {
               return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
@@ -682,21 +657,20 @@
           const endsAtMs = toMs(g.endsAt) || toMs(g.revealSchedule?.endAt);
           const startMs  = toMs(g.startsAt);
 
-          // Compute endMs with fallbacks
           const rulesMinutes = Number(g.rules?.game_minutes || 0);
           const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
 
           let endMs = endsAtMs;
           if (!endMs && startMs && durMs) endMs = startMs + durMs;
 
-          // Reveal time, prefer explicit, else quick 95 percent fallback
+          // Reveal time: explicit or quick fallback at last 5% of time (i.e., 95% elapsed)
           let revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
           if (!revealAtMs && startMs && endMs && endMs > startMs) {
             const total = endMs - startMs;
             revealAtMs = endMs - Math.floor(total * 0.95);
           }
 
-          // If page opened after reveal, start secret listener for fugitives now
+          // If opened after reveal, start secret listener for fugitives
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !secretListenerStarted) {
             startSecretListener();
           }
@@ -759,13 +733,13 @@
         }
       );
 
-      // Enable Send ping for both roles
+      // Enable Send ping after we have a role
       btnPing.disabled = false;
     }
 
     // Actions button
     btnActions.addEventListener('click', () => {
-      toast("Actions coming soon, Decoy Ping, Delay Reveal.");
+      toast("Actions coming soon: Decoy Ping, Delay Reveal.");
     });
 
     // Send ping (manual)
