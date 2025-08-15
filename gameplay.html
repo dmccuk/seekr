@@ -56,7 +56,7 @@
     .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
     .overlay .actions .btn{ min-width:120px }
 
-    /* Labels for pings/trails */
+    /* Labels */
     .leaflet-tooltip.trailLabel{
       background: rgba(255,255,255,.9);
       border: 1px solid var(--line);
@@ -66,7 +66,6 @@
       color: var(--ink);
       box-shadow: 0 2px 6px rgba(0,0,0,.1);
     }
-    /* Tiny seeker name labels */
     .leaflet-tooltip.seekLabel{
       background: rgba(255,255,255,.92);
       border: 1px solid #dde3ef;
@@ -459,14 +458,14 @@
       }, err => console.error("presence read error", err));
     }
 
-    // Seekers see other seekers as black dots with tiny labels (1-min render cadence)
+    // Seekers see other seekers (1-min sampled)
     function startSeekersVisualizer(){
       if (seekersLayer) return;
       seekersLayer = L.layerGroup().addTo(map);
 
       const myId = auth.currentUser?.uid;
 
-      // Load/display member names (for labels)
+      // Names for labels
       onSnapshot(collection(db, "games", code, "members"), snap => {
         snap.forEach(docu => {
           const d = docu.data() || {};
@@ -475,7 +474,7 @@
         });
       });
 
-      // Live presence for seekers
+      // Live presence
       const qSeekers = query(
         collection(db, "games", code, "presence"),
         where("role", "==", "seeker")
@@ -492,7 +491,7 @@
 
       seekersRenderTimer = setInterval(renderSeekers, SEEKERS_RENDER_MS);
 
-      function renderSeekers(isImmediate=false){
+      function renderSeekers(){
         if (!seekersLayer) return;
         seekersLayer.clearLayers();
         seekersMarkers.clear();
@@ -501,11 +500,7 @@
           if (uid === myId) return; // don't duplicate my own blue dot
           const ll = [val.lat, val.lng];
           const mk = L.circleMarker(ll, {
-            radius: 5,
-            weight: 2,
-            color: '#000000',
-            fillColor: '#000000',
-            fillOpacity: 0.9
+            radius: 5, weight: 2, color: '#000000', fillColor: '#000000', fillOpacity: 0.9
           }).addTo(seekersLayer);
 
           const name = memberNames.get(uid) || 'Seeker';
@@ -518,10 +513,7 @@
       }
     }
 
-    // ---------------------
-    // PRIME + SUBSCRIBE flow
-    // ---------------------
-
+    // ----- Time helpers (fixes the 00:01 issue) -----
     function toMs(v){
       if (!v) return 0;
       if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
@@ -534,6 +526,35 @@
       return 0;
     }
 
+    function computeTimes(g){
+      const rulesMinutes = Number(g?.rules?.game_minutes || 0);
+      const durationMs = Number(g?.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60000 : 0));
+
+      const startMsRaw  = toMs(g?.startsAt) || toMs(g?.startAt) || 0;
+      let   endMs       = toMs(g?.endsAt)   || toMs(g?.revealSchedule?.endAt) || 0;
+
+      // If endsAt is missing but we have start + duration, compute it
+      if (!endMs && startMsRaw && durationMs) {
+        endMs = startMsRaw + durationMs;
+      }
+
+      // If endsAt exists but looks bogus (equal to start/now), fix it using duration
+      if (startMsRaw && durationMs && endMs) {
+        const span = endMs - startMsRaw;
+        const tooShort = span > 0 && span < Math.min(120000, Math.max(60000, durationMs * 0.1)); // <2min or <10% of duration
+        if (tooShort) endMs = startMsRaw + durationMs;
+      }
+
+      // Reveal at: prefer explicit, else compute from endMs + rules
+      let revealAtMs = toMs(g?.revealAt) || toMs(g?.revealSchedule?.revealAt) || 0;
+      const revealRemainMin = Number(g?.rules?.reveal_minutes_remaining || 0);
+      if (!revealAtMs && endMs && revealRemainMin > 0) {
+        revealAtMs = endMs - revealRemainMin * 60000;
+      }
+
+      return { startMs: startMsRaw, endMs, revealAtMs, durationMs };
+    }
+
     function applyGameDoc(g){
       // Redirect to lobby if not live yet
       if (g.status === "lobby") {
@@ -542,7 +563,7 @@
         return;
       }
 
-      // Track current fugitive uid and reset trail if it changes (for seekers)
+      // Track fugitive uid and manage trail
       const nextFug = g.fugitiveUid || null;
       const fugChanged = nextFug !== currentFugitiveUid;
       currentFugitiveUid = nextFug;
@@ -570,7 +591,7 @@
         return;
       }
 
-      // Draw/refresh zone
+      // Zone
       const z = g.zone || null;
       const hasCenter = z && z.center && typeof z.center.lat === "number" && typeof z.center.lng === "number";
       const radiusKm =
@@ -605,7 +626,7 @@
       uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
       tagMeters    = Number(g.rules?.tag_meters ?? 2);
 
-      // Fugitive auto pings vs seeker trail attachment
+      // Fugitive auto pings
       const pingMinutes = Number(g.rules?.ping_minutes || 0);
       const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
 
@@ -623,28 +644,8 @@
         if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
       }
 
-      // Times
-      const endsAtMs = toMs(g.endsAt) || toMs(g.revealSchedule?.endAt);
-      const startMs  = toMs(g.startsAt);
-      const rulesMinutes = Number(g.rules?.game_minutes || 0);
-      const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
-
-      let endMs = endsAtMs;
-      if (!endMs && startMs && durMs) endMs = startMs + durMs;
-
-      let revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
-
-      // If fugitive has a GPS fix and round is live, guarantee a first ping quickly
-      if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
-        saveCurrentPing("round-start").catch(()=>{});
-        didInitialAutoPing = true;
-      }
-
-      // Start secret listener for fugitives after reveal moment
-      if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) {
-        startSecretListener();
-      }
-
+      // TIMES (robust)
+      const { startMs, endMs, revealAtMs } = computeTimes(g);
       const nowMs = Date.now();
 
       // Prestart countdown
@@ -689,6 +690,12 @@
       };
       tick();
       tickId = setInterval(tick, 1000);
+
+      // First fugitive ping guarantee
+      if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
+        saveCurrentPing("round-start").catch(()=>{});
+        didInitialAutoPing = true;
+      }
     }
 
     // Auth + wire up
@@ -696,7 +703,7 @@
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
 
-      // Read my membership to infer role (created via lobby)
+      // Role from membership
       const memberRef = doc(db, "games", code, "members", user.uid);
       let storedRole = null;
       try {
@@ -707,7 +714,6 @@
       }
       role = storedRole || null;
       if (!role) {
-        // No role? Go to lobby.
         location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
         return;
       }
@@ -717,7 +723,7 @@
       if (uid) watchMyPings(uid);
 
       if (role === "seeker") {
-        startSeekerTrail();       // start immediately (no wait for snapshot)
+        startSeekerTrail();       // attach immediately
         trailListenerStarted = true;
         startPresencePublisher();
         startSeekersVisualizer();
@@ -726,14 +732,12 @@
         startReadingSeekersForFugitive();
       }
 
-      // PRIME once so UI doesn't sit at 00:01
+      // PRIME once so UI is correct immediately
       const gameRef = doc(db, "games", code);
       try {
         const snap = await getDoc(gameRef);
         if (snap.exists()) applyGameDoc(snap.data());
-      } catch (_) {
-        /* non-fatal; live sub will still attach */
-      }
+      } catch (_) {}
 
       // Live updates
       onSnapshot(
