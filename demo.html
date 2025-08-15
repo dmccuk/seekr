@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Seekr.run - Gameplay demo</title>
-  <meta name="description" content="Seekr.run gameplay demo, set a zone, configure rules, get a code, then send everyone to the lobby." />
+  <meta name="description" content="Seekr.run gameplay demo: set a zone, configure rules (including reveal timing), generate a code, then go to the lobby." />
   <link rel="icon" type="image/x-icon" href="assets/seekr-favicon.ico" />
 
   <!-- Fonts -->
@@ -27,8 +27,7 @@
     body{
       margin:0; background:var(--bg); color:var(--ink);
       font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      line-height:1.35;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      line-height:1.35; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     }
     .shell{ max-width:1100px; margin:0 auto; padding:24px 16px 56px }
 
@@ -51,6 +50,7 @@
     }
     .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
     .btn.ghost{ background:#fff; color:#0e1220; border:1px solid var(--line); box-shadow:none }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed }
     .btn:focus-visible{ outline:3px solid var(--focus); outline-offset:2px }
 
     /* How it works strip */
@@ -97,7 +97,7 @@
     .track{ width:46px; height:26px; background:#d7deea; border-radius:999px; position:relative; transition:background .2s }
     .dot{ position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); transition:left .2s }
     .switch input:checked + .track{ background:#26a269 } .switch input:checked + .track .dot{ left:23px }
-    .fineprint{ font-size:12px; color:var(--muted); }
+    .fineprint{ font-size:12px; color:var(--muted) }
 
     /* Code box and WhatsApp */
     .codeBox{
@@ -152,7 +152,7 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
-        <div class="tag">Setup your round, then go to the lobby</div>
+        <div class="tag">Set up your round, then go to the lobby</div>
       </div>
       <a href="index.html" class="btn secondary">Back</a>
     </header>
@@ -161,7 +161,7 @@
     <div class="hiw" aria-label="How it works">
       <div class="chip"><span class="ico">📍</span>Set the zone</div>
       <div class="chip"><span class="ico">🕵️</span>Lobby: pick roles</div>
-      <div class="chip"><span class="ico">🏁</span>Start & reach extraction</div>
+      <div class="chip"><span class="ico">🏁</span>Host starts & extraction reveals late</div>
     </div>
 
     <div class="grid">
@@ -188,7 +188,7 @@
           </div>
           <div class="row">
             <button id="btnSecretExtract" class="btn ghost" type="button" title="Auto place a hidden extraction inside the zone">Set extraction point</button>
-            <span id="extractReadout" class="pill" style="display:none;">Extraction location set, reveals late</span>
+            <span id="extractReadout" class="pill" style="display:none;">Extraction location set (hidden)</span>
           </div>
         </div>
 
@@ -217,23 +217,24 @@
           </div>
         </div>
 
+        <!-- NEW: Reveal timing control -->
+        <div class="two" style="margin-top:10px;">
+          <div class="stack">
+            <label for="revealRemain">Reveal extraction when <strong>minutes remain</strong></label>
+            <input id="revealRemain" type="number" min="1" max="239" step="1" value="15" />
+          </div>
+          <div class="stack">
+            <label for="pingMins">Fugitive ping interval, minutes</label>
+            <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
+          </div>
+        </div>
+
         <div class="stack" style="margin-top:10px;">
           <label><strong>Actions</strong> (optional strategy)</label>
           <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
           <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
           <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal, seeker only</label>
           <div class="fineprint">Each action costs 25 Tokens to use.</div>
-        </div>
-
-        <div class="two" style="margin-top:10px;">
-          <div class="stack">
-            <label for="pingMins">Fugitive ping interval, minutes</label>
-            <input id="pingMins" type="number" min="1" max="15" step="1" value="5" />
-          </div>
-          <div class="stack">
-            <label>Tokens</label>
-            <div class="pill"><strong>500</strong> Tokens</div>
-          </div>
         </div>
 
         <div class="stack" style="margin-top:14px;">
@@ -248,7 +249,7 @@
           </div>
 
           <!-- Single CTA -->
-          <button id="btnGoLobby" class="btn" type="button">Go to Lobby</button>
+          <button id="btnGoLobby" class="btn" type="button" disabled>Go to Lobby</button>
           <div id="status" class="footnote" aria-live="polite"></div>
 
           <div class="footnote">The lobby handles role selection and starting the round. Questions? <a href="index.html#faq">Check the FAQ</a>.</div>
@@ -264,8 +265,8 @@
       <p>Three steps and you are ready.</p>
       <div class="steps">
         <div>1, Drag the pin to set the center and adjust the radius.</div>
-        <div>2, Press Set extraction point to place a hidden destination (reveals late).</div>
-        <div>3, Pick rules, generate a code, then go to the lobby.</div>
+        <div>2, Press Set extraction point to place a hidden destination (or we’ll auto-place it for you).</div>
+        <div>3, Pick rules (including reveal timing), generate a code, then go to the lobby.</div>
       </div>
       <div class="actions">
         <button id="obSkip" class="btn ghost" type="button">Skip</button>
@@ -281,14 +282,16 @@
   <script>
     // Map setup
     let map, centerMarker, areaCircle, uncertaintyCircle, extractMarker;
+    let mapReady = false;
 
-    const centerReadout   = document.getElementById('centerReadout');
-    const radiusInput     = document.getElementById('radiusKm');
-    const uncertaintyInput= document.getElementById('uncertaintyM');
-    const btnSecretExtract= document.getElementById('btnSecretExtract');
-    const extractReadout  = document.getElementById('extractReadout');
-    const statusEl        = document.getElementById('status');
-    const toastEl         = document.getElementById('toast');
+    const centerReadout    = document.getElementById('centerReadout');
+    const radiusInput      = document.getElementById('radiusKm');
+    const uncertaintyInput = document.getElementById('uncertaintyM');
+    const btnSecretExtract = document.getElementById('btnSecretExtract');
+    const extractReadout   = document.getElementById('extractReadout');
+    const statusEl         = document.getElementById('status');
+    const toastEl          = document.getElementById('toast');
+    const btnGoLobby       = document.getElementById('btnGoLobby');
 
     // Secret extraction state
     let secretPoint = null;
@@ -332,6 +335,11 @@
         drawUncertainty(p, Number(uncertaintyInput.value));
         setCenterReadout(p);
       });
+
+      // Expose to module in a safe way
+      window.seekrCenterMarker = centerMarker;
+      mapReady = true;
+      btnGoLobby.disabled = false;
     }
 
     radiusInput.addEventListener('input', () => {
@@ -400,17 +408,20 @@
       secretPoint = randomPointInCircle(center, radiusMeters);
       addExtractionMarker(secretPoint);
       extractReadout.style.display = 'inline-block';
-      extractReadout.textContent = 'Extraction location set (hidden in lobby; reveals late in gameplay)';
+      extractReadout.textContent = 'Extraction location set (hidden)';
       showToast('Extraction point set. It will be revealed to fugitives late in the round.');
-      statusEl.textContent = 'Extraction set (will save to Firestore when you Go to Lobby)';
+      statusEl.textContent = 'Extraction set (will save when you Go to Lobby)';
       statusEl.style.color = 'var(--good)';
+
+      // expose for module save
+      window.seekrSecretPoint = { lat: secretPoint.lat, lng: secretPoint.lng };
     });
   </script>
 
   <!-- DEMO UI + PRESETS + SHARE (module; includes Firebase) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, serverTimestamp, deleteField } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 
     // Firebase config
@@ -429,35 +440,41 @@
     const btnGoLobby   = document.getElementById('btnGoLobby');
     const btnCopyLobby = document.getElementById('btnCopyLobby');
     const btnShareWA   = document.getElementById('btnShareWA');
+    const statusEl     = document.getElementById('status');
 
-    const gameLen  = document.getElementById('gameLen');
-    const tagDist  = document.getElementById('tagDist');
-    const pingMins = document.getElementById('pingMins');
-    const puDelay  = document.getElementById('puDelay');
-    const puDecoy  = document.getElementById('puDecoy');
-    const puReveal = document.getElementById('puReveal');
-
-    const statusEl = document.getElementById('status');
+    // Rule inputs
+    const radiusKm     = document.getElementById('radiusKm');
+    const uncertaintyM = document.getElementById('uncertaintyM');
+    const gameLen      = document.getElementById('gameLen');
+    const tagDist      = document.getElementById('tagDist');
+    const pingMins     = document.getElementById('pingMins');
+    const revealRemain = document.getElementById('revealRemain');
+    const puDelay      = document.getElementById('puDelay');
+    const puDecoy      = document.getElementById('puDecoy');
+    const puReveal     = document.getElementById('puReveal');
 
     // Presets
     document.getElementById('presetHunt').addEventListener('click', () => {
       gameLen.value = 25; tagDist.value = 8; pingMins.value = 3;
-      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
       radiusKm.value = 0.8; uncertaintyM.value = 50;
+      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
+      autoSetRevealIfNotDirty();
       radiusKm.dispatchEvent(new Event('input')); uncertaintyM.dispatchEvent(new Event('input'));
       nudge('Fugitive Hunt preset applied');
     });
     document.getElementById('presetTeam').addEventListener('click', () => {
       gameLen.value = 40; tagDist.value = 10; pingMins.value = 4;
-      puDelay.checked = true; puDecoy.checked = false; puReveal.checked = true;
       radiusKm.value = 1.2; uncertaintyM.value = 60;
+      puDelay.checked = true; puDecoy.checked = false; puReveal.checked = true;
+      autoSetRevealIfNotDirty();
       radiusKm.dispatchEvent(new Event('input')); uncertaintyM.dispatchEvent(new Event('input'));
       nudge('Team Battle preset applied');
     });
     document.getElementById('presetLarge').addEventListener('click', () => {
       gameLen.value = 60; tagDist.value = 12; pingMins.value = 5;
-      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = false;
       radiusKm.value = 2.0; uncertaintyM.value = 75;
+      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = false;
+      autoSetRevealIfNotDirty();
       radiusKm.dispatchEvent(new Event('input')); uncertaintyM.dispatchEvent(new Event('input'));
       nudge('Large Zone preset applied');
     });
@@ -465,6 +482,34 @@
     function nudge(t){
       statusEl.textContent = t;
       statusEl.style.color = 'var(--good)';
+    }
+
+    // Reveal timing: default 50% of game length (rounded), until user edits
+    let revealDirty = false;
+    function autoSetRevealIfNotDirty(){
+      if (revealDirty) return;
+      const gl = clampNum(Number(gameLen.value), 5, 240, 30);
+      const auto = Math.max(1, Math.min(gl - 1, Math.round(gl * 0.5)));
+      revealRemain.value = auto;
+      revealRemain.max = String(Math.max(1, gl - 1));
+    }
+    gameLen.addEventListener('input', () => {
+      const gl = clampNum(Number(gameLen.value), 5, 240, 30);
+      gameLen.value = gl;
+      if (!revealDirty) autoSetRevealIfNotDirty(); else revealRemain.max = String(Math.max(1, gl - 1));
+    });
+    revealRemain.addEventListener('input', () => {
+      const gl = clampNum(Number(gameLen.value), 5, 240, 30);
+      const rr = clampNum(Number(revealRemain.value), 1, gl - 1, Math.round(gl * 0.5));
+      revealRemain.value = rr;
+      revealDirty = true;
+    });
+    // Initialize default reveal once
+    autoSetRevealIfNotDirty();
+
+    function clampNum(n, min, max, fallback){
+      n = Number.isFinite(n) ? n : fallback;
+      return Math.max(min, Math.min(max, n));
     }
 
     // Code helpers
@@ -501,36 +546,76 @@
 
     // Save config to Firestore as a lobby round, then go to lobby
     btnGoLobby.addEventListener('click', async () => {
+      if (btnGoLobby.disabled) return;
+
       const code = (codeEl.textContent.trim() || makeCode());
       if (!codeEl.textContent.trim()) {
         codeEl.textContent = code;
         updateUrlParam('code', code);
       }
 
-      // Gather UI state (map helpers live in the non-module script)
-      const center = window.centerMarker?.getLatLng?.();
-      if (!center) { alert("Please wait for the map to load."); return; }
+      // Gather UI state (map objects are exposed by non-module script)
+      const centerMarker = window.seekrCenterMarker;
+      const center = centerMarker?.getLatLng?.();
+      if (!center) {
+        // Silent guard: keep disabled state rather than alert
+        statusEl.textContent = 'Waiting for map…';
+        statusEl.style.color = 'var(--muted)';
+        return;
+      }
 
+      // Build docs
       const zone = {
         center: { lat: center.lat, lng: center.lng },
-        radius_km: Number(document.getElementById('radiusKm').value)
+        radius_km: Number(radiusKm.value)
       };
       const rules = {
         game_minutes: Number(gameLen.value),
         tag_meters:   Number(tagDist.value),
         ping_minutes: Number(pingMins.value),
-        uncertainty_m:Number(document.getElementById('uncertaintyM').value),
+        uncertainty_m:Number(uncertaintyM.value),
+        reveal_minutes_remaining: Number(revealRemain.value),
         actions: { delay: puDelay.checked, decoy: puDecoy.checked, reveal: puReveal.checked }
       };
       const lobbyConfig = { uncertaintyM: rules.uncertainty_m };
 
-      // Try to persist
+      // Auto-set secret extraction if host didn't press the button
+      let secret = window.seekrSecretPoint;
+      if (!secret || typeof secret.lat !== "number" || typeof secret.lng !== "number") {
+        // lightweight reimplementation (matches non-module helper)
+        function destinationPoint(latlng, distanceMeters, bearingRad){
+          const R = 6371000;
+          const phi1 = latlng.lat * Math.PI / 180;
+          const lam1 = latlng.lng * Math.PI / 180;
+          const d = distanceMeters / R, th = bearingRad;
+          const sinPhi1 = Math.sin(phi1), cosPhi1 = Math.cos(phi1);
+          const sinD = Math.sin(d), cosD = Math.cos(d);
+          const sinTh = Math.sin(th), cosTh = Math.cos(th);
+          const sinPhi2 = sinPhi1 * cosD + cosPhi1 * sinD * cosTh;
+          const phi2 = Math.asin(sinPhi2);
+          const y = sinTh * sinD * cosPhi1;
+          const x = cosD - sinPhi1 * sinPhi2;
+          const lam2 = lam1 + Math.atan2(y, x);
+          return { lat: phi2 * 180/Math.PI, lng: lam2 * 180/Math.PI };
+        }
+        function randomPointInCircle(center, radiusMeters){
+          const u = Math.random(), v = Math.random();
+          const r = radiusMeters * Math.sqrt(u);
+          const th = 2 * Math.PI * v;
+          return destinationPoint(center, r, th);
+        }
+        const centerLL = { lat: center.lat, lng: center.lng };
+        const radiusM  = Number(radiusKm.value) * 1000;
+        const p = randomPointInCircle(centerLL, radiusM);
+        secret = { lat: p.lat, lng: p.lng };
+      }
+
+      // Persist
       if (db && auth?.currentUser) {
         try{
           const uid = auth.currentUser.uid;
           const gameRef = doc(db, 'games', code);
 
-          // If no host yet, claim hostUid; set status:lobby & config
           const snap = await getDoc(gameRef);
           const base = {
             code,
@@ -538,8 +623,14 @@
             zone,
             rules,
             lobbyConfig,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            // clear stale live state (important so lobby doesn’t think it’s live)
+            startsAt: deleteField(),
+            endsAt:   deleteField(),
+            revealAt: deleteField(),
+            fugitiveUid: deleteField()
           };
+
           if (!snap.exists()) {
             await setDoc(gameRef, { ...base, createdAt: serverTimestamp(), hostUid: uid }, { merge:true });
           } else {
@@ -547,11 +638,8 @@
             await setDoc(gameRef, { ...base, ...(g.hostUid ? {} : { hostUid: uid }) }, { merge:true });
           }
 
-          // Save secret extraction if set
-          if (window.secretPoint && typeof window.secretPoint.lat === "number") {
-            const secRef = doc(db, 'games', code, 'private', 'secret');
-            await setDoc(secRef, { lat: window.secretPoint.lat, lng: window.secretPoint.lng }, { merge:true });
-          }
+          // Save secret extraction in private subdoc
+          await setDoc(doc(db, 'games', code, 'private', 'secret'), secret, { merge:true });
 
           statusEl.textContent = 'Saved. Opening lobby…';
           statusEl.style.color = 'var(--good)';
@@ -562,10 +650,10 @@
         }
       } else {
         statusEl.textContent = 'Opening lobby (no backend save — Firebase not initialized).';
-        statusEl.style.color = 'var(--bad)';
+        statusEl.style.color = 'var(--muted)';
       }
 
-      // Go to the single lobby room
+      // Go to the lobby room
       const lobbyUrl = `${location.origin}/lobby.html?code=${encodeURIComponent(code)}`;
       location.href = lobbyUrl;
     });
@@ -600,7 +688,7 @@
       if (w) w.opener = null;
     });
 
-    // Expose a tiny toast helper (non-critical)
+    // Tiny toast helper for module
     function toast(t){
       const el = document.getElementById('toast');
       el.textContent = t;
@@ -619,12 +707,13 @@
       const p = parseFloat(url.searchParams.get('p'));
       const t = parseFloat(url.searchParams.get('t'));
       if(code){ codeEl.textContent = code; }
-      if(Number.isFinite(r)){ radiusKm.value = clamp(r, 0.2, 50, 0.6); radiusKm.dispatchEvent(new Event('input')); }
-      if(Number.isFinite(u)){ uncertaintyM.value = clamp(u, 10, 200, 50); uncertaintyM.dispatchEvent(new Event('input')); }
-      if(Number.isFinite(g)){ gameLen.value = clamp(g, 5, 240, 30); }
-      if(Number.isFinite(p)){ pingMins.value = clamp(p, 1, 15, 5); }
-      if(Number.isFinite(t)){ tagDist.value = clamp(t, 2, 50, 8); }
-      maybeShowOverlay();
+      if(Number.isFinite(r)){ radiusKm.value = clampNum(r, 0.2, 50, 0.6); radiusKm.dispatchEvent(new Event('input')); }
+      if(Number.isFinite(u)){ uncertaintyM.value = clampNum(u, 10, 200, 50); uncertaintyM.dispatchEvent(new Event('input')); }
+      if(Number.isFinite(g)){ gameLen.value = clampNum(g, 5, 240, 30); autoSetRevealIfNotDirty(); }
+      if(Number.isFinite(p)){ pingMins.value = clampNum(p, 1, 15, 5); }
+      if(Number.isFinite(t)){ tagDist.value = clampNum(t, 2, 50, 8); }
+      // ensure reveal bounds reflect current game length
+      autoSetRevealIfNotDirty();
     });
   </script>
 
@@ -650,6 +739,9 @@
     obGo.addEventListener('click', hideOverlay);
     overlay.addEventListener('click', (e) => { if(e.target === overlay) hideOverlay(); });
     document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hideOverlay(); });
+
+    // show on first load
+    maybeShowOverlay();
   </script>
 </body>
 </html>
