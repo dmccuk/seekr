@@ -91,7 +91,7 @@
     <section class="card">
       <div id="map" aria-label="Live game map"></div>
       <div class="hud">
-        <span id="timePill" class="pill">Time, 00:00</span>
+        <span id="timePill" class="pill">Loading time…</span>
         <button id="btnActions" class="btn secondary" type="button">Actions</button>
         <button id="btnPing" class="btn" type="button">Send ping</button>
       </div>
@@ -179,7 +179,7 @@
     let trailListenerStarted = false;
     let currentFugitiveUid = null;
 
-    // Seeker-to-seeker layer (new)
+    // Seeker-to-seeker layer (visualization)
     let seekersLayer = null;
     const seekersMarkers = new Map(); // uid -> L.circleMarker
     let seekersRenderTimer = null;
@@ -473,7 +473,6 @@
           const nm = d.name || d.displayName || d.nickname || (d.role === 'fugitive' ? 'Fugitive' : 'Seeker');
           memberNames.set(docu.id, String(nm));
         });
-        // refresh labels on next render
       });
 
       // Live presence for seekers
@@ -488,23 +487,18 @@
             seekersLive.set(docu.id, { lat:d.lat, lng:d.lng, updatedAt:d.updatedAt });
           }
         });
-        // We render on a 1-min timer; also nudge an immediate render once at start.
-        if (!seekersRenderTimer) immediateRenderSeekers();
+        if (!seekersRenderTimer) renderSeekers(true);
       });
 
-      // Render every minute
       seekersRenderTimer = setInterval(renderSeekers, SEEKERS_RENDER_MS);
-      // and once right away so the map doesn't look empty
-      function immediateRenderSeekers(){ renderSeekers(true); }
 
       function renderSeekers(isImmediate=false){
         if (!seekersLayer) return;
-        // Clear and redraw (cheap: only a few markers)
         seekersLayer.clearLayers();
         seekersMarkers.clear();
 
         seekersLive.forEach((val, uid) => {
-          if (uid === myId) return; // avoid duplicating my own blue dot
+          if (uid === myId) return; // don't duplicate my own blue dot
           const ll = [val.lat, val.lng];
           const mk = L.circleMarker(ll, {
             radius: 5,
@@ -521,10 +515,180 @@
 
           seekersMarkers.set(uid, mk);
         });
-
-        // If we rendered immediately, let the minute timer handle future refreshes
-        if (isImmediate) { /* no-op */ }
       }
+    }
+
+    // ---------------------
+    // PRIME + SUBSCRIBE flow
+    // ---------------------
+
+    function toMs(v){
+      if (!v) return 0;
+      if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+      if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
+      if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
+      if (typeof v === "object" && typeof v.toDate === "function") return v.toDate().getTime();
+      if (typeof v === "object" && typeof v.seconds === "number") {
+        return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
+      }
+      return 0;
+    }
+
+    function applyGameDoc(g){
+      // Redirect to lobby if not live yet
+      if (g.status === "lobby") {
+        toast("Waiting in lobby…");
+        location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
+        return;
+      }
+
+      // Track current fugitive uid and reset trail if it changes (for seekers)
+      const nextFug = g.fugitiveUid || null;
+      const fugChanged = nextFug !== currentFugitiveUid;
+      currentFugitiveUid = nextFug;
+
+      if (role === "seeker" && !trailListenerStarted) {
+        startSeekerTrail();
+        trailListenerStarted = true;
+      }
+      if (role === "seeker" && fugChanged && trailLayer && trailLine) {
+        trailLayer.clearLayers();
+        trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
+      }
+
+      // Ended?
+      if (g.status === "ended"){
+        gameEnded = true;
+        if (tickId) { clearInterval(tickId); tickId = null; }
+        if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
+        if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
+        if (seekersRenderTimer) { clearInterval(seekersRenderTimer); seekersRenderTimer = null; }
+        if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+        btnPing.disabled = true;
+        timePill.textContent = "Time, round ended";
+        showEndOverlay(g.winner || "unknown", g.endReason || "");
+        return;
+      }
+
+      // Draw/refresh zone
+      const z = g.zone || null;
+      const hasCenter = z && z.center && typeof z.center.lat === "number" && typeof z.center.lng === "number";
+      const radiusKm =
+        z && typeof z.radius_km === "number" ? z.radius_km :
+        z && typeof z.radius_m  === "number" ? z.radius_m / 1000 :
+        null;
+
+      if (hasCenter && typeof radiusKm === "number" && Number.isFinite(radiusKm)) {
+        areaCenterLL = L.latLng(z.center.lat, z.center.lng);
+        areaRadiusM = Math.max(50, Math.round(radiusKm * 1000));
+        if (!areaCircle) {
+          areaCircle = L.circle(areaCenterLL, {
+            radius: areaRadiusM,
+            color: "#1e4cff",
+            weight: 2,
+            fillColor: "#1e4cff",
+            fillOpacity: 0.08,
+            dashArray: "4,6"
+          }).addTo(map);
+          if (!zoneFitDone && !myMarker) {
+            map.fitBounds(areaCircle.getBounds());
+            zoneFitDone = true;
+          }
+        } else {
+          areaCircle.setLatLng(areaCenterLL);
+          areaCircle.setRadius(areaRadiusM);
+        }
+      }
+
+      // Rules
+      const cfg = g.lobbyConfig || {};
+      uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
+      tagMeters    = Number(g.rules?.tag_meters ?? 2);
+
+      // Fugitive auto pings vs seeker trail attachment
+      const pingMinutes = Number(g.rules?.ping_minutes || 0);
+      const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
+
+      if (role === "fugitive") {
+        if (autoPingId && autoPingEveryMs !== desiredMs) {
+          clearInterval(autoPingId); autoPingId = null;
+        }
+        if (!autoPingId && desiredMs > 0) {
+          autoPingEveryMs = desiredMs;
+          didInitialAutoPing = false;
+          if (lastCoords) saveCurrentPing("interval-start").catch(()=>{});
+          autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
+        }
+      } else {
+        if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
+      }
+
+      // Times
+      const endsAtMs = toMs(g.endsAt) || toMs(g.revealSchedule?.endAt);
+      const startMs  = toMs(g.startsAt);
+      const rulesMinutes = Number(g.rules?.game_minutes || 0);
+      const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
+
+      let endMs = endsAtMs;
+      if (!endMs && startMs && durMs) endMs = startMs + durMs;
+
+      let revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
+
+      // If fugitive has a GPS fix and round is live, guarantee a first ping quickly
+      if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
+        saveCurrentPing("round-start").catch(()=>{});
+        didInitialAutoPing = true;
+      }
+
+      // Start secret listener for fugitives after reveal moment
+      if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) {
+        startSecretListener();
+      }
+
+      const nowMs = Date.now();
+
+      // Prestart countdown
+      if (startMs && startMs > nowMs) {
+        const until = startMs - nowMs;
+        const m = Math.floor(until / 60000);
+        const s = String(Math.floor((until % 60000) / 1000)).padStart(2, "0");
+        timePill.textContent = `Starts in, ${m}:${s}`;
+        if (tickId) { clearInterval(tickId); tickId = null; }
+        return;
+      }
+
+      if (!endMs) {
+        timePill.textContent = "Time, waiting";
+        if (tickId) { clearInterval(tickId); tickId = null; }
+        return;
+      }
+
+      if (endMs <= nowMs) {
+        timePill.textContent = "Time, round ended";
+        if (tickId) { clearInterval(tickId); tickId = null; }
+        return;
+      }
+
+      if (tickId) clearInterval(tickId);
+      const tick = () => {
+        const now = Date.now();
+        const left = Math.max(0, endMs - now);
+        const m = Math.floor(left / 60000);
+        const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
+        timePill.textContent = `Time, ${m}:${s}`;
+
+        if (role === "fugitive" && revealAtMs && now >= revealAtMs && !extractMarker) {
+          startSecretListener();
+        }
+        if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) {
+          toast("Extraction location has been disclosed to fugitives.");
+          revealToastShown = true;
+        }
+
+        if (left === 0) { clearInterval(tickId); tickId = null; }
+      };
+      tick();
+      tickId = setInterval(tick, 1000);
     }
 
     // Auth + wire up
@@ -553,192 +717,28 @@
       if (uid) watchMyPings(uid);
 
       if (role === "seeker") {
+        startSeekerTrail();       // start immediately (no wait for snapshot)
+        trailListenerStarted = true;
         startPresencePublisher();
-        startSeekersVisualizer();   // <-- NEW: seekers see other seekers
+        startSeekersVisualizer();
       }
       if (role === "fugitive") {
         startReadingSeekersForFugitive();
       }
 
-      // Listen to game doc
+      // PRIME once so UI doesn't sit at 00:01
       const gameRef = doc(db, "games", code);
+      try {
+        const snap = await getDoc(gameRef);
+        if (snap.exists()) applyGameDoc(snap.data());
+      } catch (_) {
+        /* non-fatal; live sub will still attach */
+      }
+
+      // Live updates
       onSnapshot(
         gameRef,
-        snap => {
-          if (!snap.exists()) {
-            hint.textContent = "Game not found";
-            if (tickId) { clearInterval(tickId); tickId = null; }
-            return;
-          }
-
-          const g = snap.data();
-
-          // Redirect to lobby if not live yet
-          if (g.status === "lobby") {
-            toast("Waiting in lobby…");
-            location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
-            return;
-          }
-
-          // Track current fugitive uid and reset trail if it changes
-          const nextFug = g.fugitiveUid || null;
-          const fugChanged = nextFug !== currentFugitiveUid;
-          currentFugitiveUid = nextFug;
-
-          if (role === "seeker" && !trailListenerStarted) {
-            startSeekerTrail();
-            trailListenerStarted = true;
-          }
-          if (role === "seeker" && fugChanged && trailLayer && trailLine) {
-            trailLayer.clearLayers();
-            trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
-          }
-
-          // Ended?
-          if (g.status === "ended"){
-            gameEnded = true;
-            if (tickId) { clearInterval(tickId); tickId = null; }
-            if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
-            if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
-            if (seekersRenderTimer) { clearInterval(seekersRenderTimer); seekersRenderTimer = null; }
-            btnPing.disabled = true;
-            timePill.textContent = "Time, round ended";
-            showEndOverlay(g.winner || "unknown", g.endReason || "");
-            return;
-          }
-
-          // Draw/refresh zone
-          const z = g.zone || null;
-          const hasCenter = z && z.center && typeof z.center.lat === "number" && typeof z.center.lng === "number";
-          const radiusKm =
-            z && typeof z.radius_km === "number" ? z.radius_km :
-            z && typeof z.radius_m  === "number" ? z.radius_m / 1000 :
-            null;
-
-          if (hasCenter && typeof radiusKm === "number" && Number.isFinite(radiusKm)) {
-            areaCenterLL = L.latLng(z.center.lat, z.center.lng);
-            areaRadiusM = Math.max(50, Math.round(radiusKm * 1000));
-            if (!areaCircle) {
-              areaCircle = L.circle(areaCenterLL, {
-                radius: areaRadiusM,
-                color: "#1e4cff",
-                weight: 2,
-                fillColor: "#1e4cff",
-                fillOpacity: 0.08,
-                dashArray: "4,6"
-              }).addTo(map);
-              if (!zoneFitDone && !myMarker) {
-                map.fitBounds(areaCircle.getBounds());
-                zoneFitDone = true;
-              }
-            } else {
-              areaCircle.setLatLng(areaCenterLL);
-              areaCircle.setRadius(areaRadiusM);
-            }
-          }
-
-          // Rules
-          const cfg = g.lobbyConfig || {};
-          uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
-          tagMeters    = Number(g.rules?.tag_meters ?? 2);
-
-          // Fugitive auto pings vs seeker trail attachment
-          const pingMinutes = Number(g.rules?.ping_minutes || 0);
-          const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
-
-          if (role === "fugitive") {
-            if (autoPingId && autoPingEveryMs !== desiredMs) {
-              clearInterval(autoPingId); autoPingId = null;
-            }
-            if (!autoPingId && desiredMs > 0) {
-              autoPingEveryMs = desiredMs;
-              didInitialAutoPing = false;
-              if (lastCoords) saveCurrentPing("interval-start").catch(()=>{});
-              autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
-            }
-          } else {
-            if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
-          }
-
-          // Times
-          const toMs = (v) => {
-            if (!v) return 0;
-            if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
-            if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? 0 : t; }
-            if (typeof v === "object" && typeof v.toMillis === "function") return v.toMillis();
-            if (typeof v === "object" && typeof v.toDate === "function") return v.toDate().getTime();
-            if (typeof v === "object" && typeof v.seconds === "number") {
-              return v.seconds * 1000 + Math.floor((v.nanoseconds || 0) / 1e6);
-            }
-            return 0;
-          };
-
-          const endsAtMs = toMs(g.endsAt) || toMs(g.revealSchedule?.endAt);
-          const startMs  = toMs(g.startsAt);
-          const rulesMinutes = Number(g.rules?.game_minutes || 0);
-          const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
-
-          let endMs = endsAtMs;
-          if (!endMs && startMs && durMs) endMs = startMs + durMs;
-
-          let revealAtMs = toMs(g.revealAt) || toMs(g.revealSchedule?.revealAt);
-
-          // If fugitive has a GPS fix and round is live, guarantee a first ping quickly
-          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
-            saveCurrentPing("round-start").catch(()=>{});
-            didInitialAutoPing = true;
-          }
-
-          // Start secret listener for fugitives after reveal moment
-          if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) {
-            startSecretListener();
-          }
-
-          const nowMs = Date.now();
-
-          // Prestart countdown
-          if (startMs && startMs > nowMs) {
-            const until = startMs - nowMs;
-            const m = Math.floor(until / 60000);
-            const s = String(Math.floor((until % 60000) / 1000)).padStart(2, "0");
-            timePill.textContent = `Starts in, ${m}:${s}`;
-            if (tickId) { clearInterval(tickId); tickId = null; }
-            return;
-          }
-
-          if (!endMs) {
-            timePill.textContent = "Time, waiting";
-            if (tickId) { clearInterval(tickId); tickId = null; }
-            return;
-          }
-
-          if (endMs <= nowMs) {
-            timePill.textContent = "Time, round ended";
-            if (tickId) { clearInterval(tickId); tickId = null; }
-            return;
-          }
-
-          if (tickId) clearInterval(tickId);
-          const tick = () => {
-            const now = Date.now();
-            const left = Math.max(0, endMs - now);
-            const m = Math.floor(left / 60000);
-            const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
-            timePill.textContent = `Time, ${m}:${s}`;
-
-            if (role === "fugitive" && revealAtMs && now >= revealAtMs && !extractMarker) {
-              startSecretListener();
-            }
-            if (role === "seeker" && revealAtMs && now >= revealAtMs && !revealToastShown) {
-              toast("Extraction location has been disclosed to fugitives.");
-              revealToastShown = true;
-            }
-
-            if (left === 0) { clearInterval(tickId); tickId = null; }
-          };
-          tick();
-          tickId = setInterval(tick, 1000);
-        },
+        s => { if (s.exists()) applyGameDoc(s.data()); },
         err => {
           console.error("onSnapshot error for games/%s", code, err);
           hint.textContent = "Cannot read game, check Firestore rules.";
@@ -777,6 +777,7 @@
       if (autoPingId) clearInterval(autoPingId);
       if (presenceTimer) clearInterval(presenceTimer);
       if (seekersRenderTimer) clearInterval(seekersRenderTimer);
+      if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
     });
   </script>
 </body>
