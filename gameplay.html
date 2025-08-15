@@ -308,6 +308,9 @@
     let autoPingEveryMs = 0;
     let didInitialAutoPing = false;
 
+    // Track round status for first-ping gating
+    let gameLive = false;
+
     // Seeker trail (fugitive)
     const trailColor = '#ff9500'; // orange
     let trailLayer = null;
@@ -513,20 +516,6 @@
       fug = null;
     }
 
-    // Testing UI wiring
-    if (DEV){
-      btnStartBots.addEventListener('click', () => {
-        const n = Math.max(1, Math.min(8, Number(botCountInput.value || 3)));
-        if (!areaCenterLL || !areaRadiusM){ toast("Bots need the zone to load first."); return; }
-        spawnBots(n);
-        toast(`Started ${n} bot${n>1?'s':''}.`);
-      });
-      btnStopBots.addEventListener('click', () => { stopBots(); toast("Bots stopped."); });
-
-      btnStartFug.addEventListener('click', () => { startFugitiveBot(); });
-      btnStopFug.addEventListener('click', () => { stopFugitiveBot(); toast("Fugitive bot stopped."); });
-    }
-
     // Code
     const code = url.searchParams.get("code")?.toUpperCase() || "";
 
@@ -611,6 +600,18 @@
       }catch(e){ console.warn("saveCurrentPing failed", e); }
     }
 
+    // Fire a one-time initial fugitive ping as soon as the round is live AND GPS is ready
+    function maybeInitialFugitivePing(reason = "round-start"){
+      if (didInitialAutoPing) return;
+      if (role === "fugitive" && gameLive && lastCoords){
+        didInitialAutoPing = true;
+        saveCurrentPing(reason).catch(()=>{
+          // allow retry if it failed (e.g., offline)
+          didInitialAutoPing = false;
+        });
+      }
+    }
+
     // Location
     function startGeoWatch(){
       if (geoWatchId) return;
@@ -620,7 +621,12 @@
       if (!('geolocation' in navigator)){ toast('Geolocation not available in this browser.'); return; }
 
       navigator.geolocation.getCurrentPosition(
-        pos => { lastCoords = pos.coords; updateMyMarker(pos.coords.latitude, pos.coords.longitude, true); },
+        pos => {
+          lastCoords = pos.coords;
+          updateMyMarker(pos.coords.latitude, pos.coords.longitude, true);
+          // try first ping if game already live
+          maybeInitialFugitivePing("gps-prime");
+        },
         err => { console.warn('getCurrentPosition error', err); toast('Please allow location to see your dot.'); },
         { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
@@ -631,6 +637,8 @@
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
           maybeCheckExtractionWin(pos.coords);
           maybeCheckTaggedBySeeker(pos.coords);
+          // if game turns live later, this will trigger the first ping promptly
+          maybeInitialFugitivePing("gps-watch");
         },
         err => {
           console.warn('watchPosition error', err);
@@ -1023,15 +1031,20 @@
             if (autoPingId && autoPingEveryMs !== desiredMs) { clearInterval(autoPingId); autoPingId = null; }
             if (!autoPingId && desiredMs > 0) {
               autoPingEveryMs = desiredMs;
-              didInitialAutoPing = false;
-              if (lastCoords) saveCurrentPing("interval-start").catch(()=>{});
+              // send a single immediate ping if GPS is ready and we haven't done the initial one yet
+              if (lastCoords && !didInitialAutoPing) {
+                didInitialAutoPing = true;
+                saveCurrentPing("interval-start").catch(()=>{ didInitialAutoPing = false; });
+              }
               autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
             }
           } else { if (autoPingId) { clearInterval(autoPingId); autoPingId = null; } }
 
           // Times & countdown
           const { startMs, endMs, revealAtMs } = computeTimes(g);
-          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) { saveCurrentPing("round-start").catch(()=>{}); didInitialAutoPing = true; }
+          gameLive = g.status === "live";
+          // if the round just went live (or GPS just arrived), fire the first breadcrumb ASAP
+          maybeInitialFugitivePing("round-start");
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) { startSecretListener(); }
           startCountdown({ startMs, endMs, revealAtMs });
         },
