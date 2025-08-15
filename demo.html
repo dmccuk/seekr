@@ -90,12 +90,6 @@
       border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a;
     }
 
-    /* Actions */
-    .switch{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; font-size:13px; color:var(--ink) }
-    .switch input{ display:none }
-    .track{ width:46px; height:26px; background:#d7deea; border-radius:999px; position:relative; transition:background .2s }
-    .dot{ position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); transition:left .2s }
-    .switch input:checked + .track{ background:#26a269 } .switch input:checked + .track .dot{ left:23px }
     .fineprint{ font-size:12px; color:var(--muted) }
 
     /* Code box and WhatsApp */
@@ -198,12 +192,7 @@
       <section class="card">
         <h2>Rules</h2>
 
-        <!-- Quick presets -->
-        <div class="row" style="margin-bottom:8px;">
-          <button class="btn ghost" id="presetHunt" type="button" title="Many seekers vs one fugitive">Preset, Fugitive Hunt</button>
-          <button class="btn ghost" id="presetTeam" type="button" title="Team vs team">Preset, Team Battle</button>
-          <button class="btn ghost" id="presetLarge" type="button" title="Large zone hunts">Preset, Large Zone</button>
-        </div>
+        <!-- Presets removed -->
 
         <div class="two">
           <div class="stack">
@@ -228,13 +217,7 @@
           </div>
         </div>
 
-        <div class="stack" style="margin-top:10px;">
-          <label><strong>Actions</strong> (optional strategy)</label>
-          <label class="switch"><input id="puDelay" type="checkbox" checked><span class="track"><span class="dot"></span></span>Delay next reveal</label>
-          <label class="switch"><input id="puDecoy" type="checkbox" checked><span class="track"><span class="dot"></span></span>Create a short decoy trail</label>
-          <label class="switch"><input id="puReveal" type="checkbox"><span class="track"><span class="dot"></span></span>Instant reveal, seeker only</label>
-          <div class="fineprint">Each action costs 25 Tokens to use.</div>
-        </div>
+        <!-- Actions section removed -->
 
         <div class="stack" style="margin-top:14px;">
           <div class="codeBox">
@@ -311,7 +294,7 @@
     }
 
     function initMap(lat=51.505, lng=-0.09){
-      map = L.map('map', { zoomControl:true, attributionControl:false });
+      map = L.map('map', { zoomControl:true, attributionControl:false, preferCanvas:true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
       const start = L.latLng(lat, lng);
       map.setView(start, 15);
@@ -357,7 +340,7 @@
     }
   </script>
 
-  <!-- DEMO UI + PRESETS + SHARE (module; includes Firebase) -->
+  <!-- DEMO UI + SHARE + SAVE (module; includes Firebase) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getFirestore, doc, setDoc, getDoc, serverTimestamp, deleteField } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
@@ -388,40 +371,6 @@
     const tagDist      = document.getElementById('tagDist');
     const pingMins     = document.getElementById('pingMins');
     const revealRemain = document.getElementById('revealRemain');
-    const puDelay      = document.getElementById('puDelay');
-    const puDecoy      = document.getElementById('puDecoy');
-    const puReveal     = document.getElementById('puReveal');
-
-    // Presets
-    document.getElementById('presetHunt').addEventListener('click', () => {
-      gameLen.value = 25; tagDist.value = 8; pingMins.value = 3;
-      radiusKm.value = 0.8; uncertaintyM.value = 50;
-      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = true;
-      autoSetRevealIfNotDirty();
-      radiusKm.dispatchEvent(new Event('input')); uncertaintyM.dispatchEvent(new Event('input'));
-      nudge('Fugitive Hunt preset applied');
-    });
-    document.getElementById('presetTeam').addEventListener('click', () => {
-      gameLen.value = 40; tagDist.value = 10; pingMins.value = 4;
-      radiusKm.value = 1.2; uncertaintyM.value = 60;
-      puDelay.checked = true; puDecoy.checked = false; puReveal.checked = true;
-      autoSetRevealIfNotDirty();
-      radiusKm.dispatchEvent(new Event('input')); uncertaintyM.dispatchEvent(new Event('input'));
-      nudge('Team Battle preset applied');
-    });
-    document.getElementById('presetLarge').addEventListener('click', () => {
-      gameLen.value = 60; tagDist.value = 12; pingMins.value = 5;
-      radiusKm.value = 2.0; uncertaintyM.value = 75;
-      puDelay.checked = true; puDecoy.checked = true; puReveal.checked = false;
-      autoSetRevealIfNotDirty();
-      radiusKm.dispatchEvent(new Event('input')); uncertaintyM.dispatchEvent(new Event('input'));
-      nudge('Large Zone preset applied');
-    });
-
-    function nudge(t){
-      statusEl.textContent = t;
-      statusEl.style.color = 'var(--good)';
-    }
 
     // Reveal timing: default 50% of game length (rounded), until user edits
     let revealDirty = false;
@@ -509,8 +458,7 @@
         tag_meters:   Number(tagDist.value),
         ping_minutes: Number(pingMins.value),
         uncertainty_m:Number(uncertaintyM.value),
-        reveal_minutes_remaining: Number(revealRemain.value),
-        actions: { delay: puDelay.checked, decoy: puDecoy.checked, reveal: puReveal.checked }
+        reveal_minutes_remaining: Number(revealRemain.value)
       };
       const lobbyConfig = { uncertaintyM: rules.uncertainty_m };
 
