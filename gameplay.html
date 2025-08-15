@@ -123,7 +123,7 @@
       <button id="btnStartFug" class="btn" type="button">Start fugitive</button>
       <button id="btnStopFug" class="btn secondary" type="button">Stop</button>
     </div>
-    <div class="fineprint">Shows orange trail to you only. Seekers get a “tagged bot” toast if within range.</div>
+    <div class="fineprint">On a fugitive tab, bot pings go to Firestore; seekers can chase.</div>
   </div>
 
   <div class="shell">
@@ -253,6 +253,9 @@
     let trailListenerStarted = false;
     let currentFugitiveUid = null;
 
+    // NEW: pursuit target for bots
+    let lastFugPingLL = null; // UPDATED: seekers chase this
+
     // Seeker-to-seeker layer
     let seekersLayer = null;
     const seekersMarkers = new Map(); // uid -> L.circleMarker
@@ -261,7 +264,7 @@
     const seekersLive = new Map();   // uid -> {lat,lng,updatedAt}
     const memberNames = new Map();   // uid -> display name
 
-    // --- Local SEEKER bots (unchanged) ---
+    // --- Local SEEKER bots (UPDATED: add pursuit) ---
     let botsLayer = null;
     let botTimer = null;
     const bots = [];
@@ -295,20 +298,28 @@
         const marker = L.circleMarker([lat, lng], {
           radius: 5, weight: 2, color: '#000000', fillColor: '#000000', fillOpacity: 0.9
         }).addTo(botsLayer).bindTooltip(names[i], { permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"seekLabel" });
-        bots.push({ id:`bot${i+1}`, name:names[i], lat, lng, headingRad: rand(0, Math.PI*2), speedMps: rand(0.7, 1.6), marker });
+        bots.push({ id:`bot${i+1}`, name:names[i], lat, lng, headingRad: rand(0, Math.PI*2), speedMps: rand(0.9, 1.7), marker });
       }
       botTimer = setInterval(stepBots, 2000);
       renderSeekersNowPlus();
     }
     function stepBots(){
       if (!bots.length || !areaCenterLL) return;
-      const dt = 2;
+      const dt = 2; // seconds / tick
       for (const b of bots){
-        b.headingRad += rand(-0.35, 0.35);
-        const distFromCenter = map.distance([b.lat,b.lng], areaCenterLL);
-        if (distFromCenter > areaRadiusM * 0.8){
-          const dirToCenter = Math.atan2(areaCenterLL.lng - b.lng, areaCenterLL.lat - b.lat);
-          b.headingRad = b.headingRad*0.4 + dirToCenter*0.6;
+        // UPDATED: if we know last fugitive ping, head that way (with jitter)
+        if (lastFugPingLL){
+          const dirToFug = Math.atan2(lastFugPingLL.lng - b.lng, lastFugPingLL.lat - b.lat);
+          // blend current heading with pursuit heading (smooth turn)
+          b.headingRad = b.headingRad*0.35 + dirToFug*0.65 + rand(-0.18, 0.18);
+        } else {
+          // patrol: drift around, bias toward center if near edge
+          b.headingRad += rand(-0.35, 0.35);
+          const distFromCenter = map.distance([b.lat,b.lng], areaCenterLL);
+          if (distFromCenter > areaRadiusM * 0.8){
+            const dirToCenter = Math.atan2(areaCenterLL.lng - b.lng, areaCenterLL.lat - b.lat);
+            b.headingRad = b.headingRad*0.4 + dirToCenter*0.6;
+          }
         }
         const step = b.speedMps * dt;
         const dx = Math.sin(b.headingRad) * step, dy = Math.cos(b.headingRad) * step;
@@ -334,11 +345,11 @@
     }
     let seekersNowPlus = [];
 
-    // --- NEW: Local FUGITIVE bot (no Firestore writes) ---
+    // --- Local FUGITIVE bot (UPDATED: head to extraction after reveal; writes pings if role=fugitive) ---
     let fugLayer = null;
     let fugMoveTimer = null;
     let fugPingTimer = null;
-    let fug = null; // {lat,lng,headingRad,speedMps, marker}
+    let fug = null; // {lat,lng,headingRad,speedMps, marker, wanderTo}
 
     function ensureTrailLayer(){
       if (!trailLayer) trailLayer = L.layerGroup().addTo(map);
@@ -368,48 +379,80 @@
       if (!fugLayer) fugLayer = L.layerGroup().addTo(map);
 
       // spawn near center
-      const dx = rand(-areaRadiusM*0.2, areaRadiusM*0.2);
-      const dy = rand(-areaRadiusM*0.2, areaRadiusM*0.2);
-      const [lat0, lng0] = llFromOffset(areaCenterLL.lat, areaCenterLL.lng, dx, dy);
+      const dx0 = rand(-areaRadiusM*0.2, areaRadiusM*0.2);
+      const dy0 = rand(-areaRadiusM*0.2, areaRadiusM*0.2);
+      const [lat0, lng0] = llFromOffset(areaCenterLL.lat, areaCenterLL.lng, dx0, dy0);
 
       const marker = L.circleMarker([lat0,lng0], { radius:7, weight:3, color:'#ff9500', fillColor:'#ffb94e', fillOpacity:0.95 })
         .addTo(fugLayer)
         .bindTooltip('Fugitive Bot', { permanent:true, direction:"top", offset:[0,-10], opacity:0.95, className:"seekLabel" });
 
-      fug = { lat:lat0, lng:lng0, headingRad: rand(0, Math.PI*2), speedMps: speed, marker };
+      fug = { lat:lat0, lng:lng0, headingRad: rand(0, Math.PI*2), speedMps: speed, marker, wanderTo: null };
 
-      // movement
+      // movement — wander until we know extraction, then beeline
       fugMoveTimer = setInterval(()=>{
         if (!fug || !areaCenterLL) return;
-        // random heading with a small bias away from edges & toward extraction if known
-        fug.headingRad += rand(-0.25, 0.25);
-        const distCenter = map.distance([fug.lat,fug.lng], areaCenterLL);
-        if (distCenter > areaRadiusM * 0.8){
-          const dirToCenter = Math.atan2(areaCenterLL.lng - fug.lng, areaCenterLL.lat - fug.lat);
-          fug.headingRad = fug.headingRad*0.5 + dirToCenter*0.5;
+
+        // If extraction known on this (fugitive) tab, go for it; else wander to random points
+        const hasTarget = !!secretLL;
+        let target = null;
+
+        if (hasTarget){
+          target = secretLL; // revealed extraction
+        } else {
+          if (!fug.wanderTo || map.distance([fug.lat,fug.lng], fug.wanderTo) < 15){
+            // pick a new wander waypoint in-zone
+            const u = Math.random(), v = Math.random();
+            const r = Math.sqrt(u) * (areaRadiusM * 0.85);
+            const th = 2*Math.PI*v;
+            const dx = Math.cos(th)*r, dy = Math.sin(th)*r;
+            const [wl, wg] = llFromOffset(areaCenterLL.lat, areaCenterLL.lng, dx, dy);
+            fug.wanderTo = L.latLng(wl, wg);
+          }
+          target = fug.wanderTo;
         }
-        const step = fug.speedMps * 1.5; // move every 1.5s (see timer below)
+
+        // smooth turn toward target, light jitter, bias inwards near edge
+        const dirToT = Math.atan2(target.lng - fug.lng, target.lat - fug.lat);
+        fug.headingRad = fug.headingRad*0.4 + dirToT*0.6 + rand(-0.12, 0.12);
+
+        const step = fug.speedMps * 1.5;
         const dx = Math.sin(fug.headingRad) * step, dy = Math.cos(fug.headingRad) * step;
         let [lat, lng] = llFromOffset(fug.lat, fug.lng, dx, dy);
         [lat, lng] = clampToZone(lat, lng);
         fug.lat = lat; fug.lng = lng;
         fug.marker.setLatLng([lat,lng]);
-        // if you're a seeker, let you "tag the bot" locally
+
+        // If you're a seeker, allow a local "tag the bot" toast for fun
         if (role === "seeker" && lastCoords){
           const d = map.distance([lastCoords.latitude,lastCoords.longitude], [lat,lng]);
-          if (d <= tagMeters){
-            toast("You tagged the fugitive bot");
-          }
+          if (d <= tagMeters){ toast("You tagged the fugitive bot"); }
         }
       }, 1500);
 
-      // "pings" to seeker trail, locally
+      // pings — if we're on a fugitive tab, write to Firestore so seekers can chase; else local-only
       ensureTrailLayer();
       addLocalFugitivePing(fug.lat, fug.lng, new Date());
-      fugPingTimer = setInterval(()=>{
+
+      fugPingTimer = setInterval(async ()=>{
         if (!fug) return;
-        addLocalFugitivePing(fug.lat, fug.lng, new Date());
-      }, Math.max(5000, pingS*1000));
+        const now = new Date();
+
+        if (role === "fugitive"){
+          try{
+            const uid = auth.currentUser?.uid || null;
+            await addDoc(collection(db, "games", code, "pings"), {
+              lat: fug.lat, lng: fug.lng, role: "fugitive", uid, reason: "bot", createdAt: serverTimestamp()
+            });
+          }catch(e){ console.warn("fugitive bot ping failed", e); }
+        }
+
+        // Always keep a local trail for this tab
+        addLocalFugitivePing(fug.lat, fug.lng, now);
+
+        // Update pursuit target instantly on *this* client
+        lastFugPingLL = L.latLng(fug.lat, fug.lng);
+      }, Math.max(5, pingS) * 1000);
 
       toast(`Fugitive bot started (${speed.toFixed(1)} m/s, pings every ${Math.round(pingS)}s).`);
     }
@@ -431,13 +474,8 @@
       });
       btnStopBots.addEventListener('click', () => { stopBots(); toast("Bots stopped."); });
 
-      btnStartFug.addEventListener('click', () => {
-        startFugitiveBot();
-      });
-      btnStopFug.addEventListener('click', () => {
-        stopFugitiveBot();
-        toast("Fugitive bot stopped.");
-      });
+      btnStartFug.addEventListener('click', () => { startFugitiveBot(); });
+      btnStopFug.addEventListener('click', () => { stopFugitiveBot(); toast("Fugitive bot stopped."); });
     }
 
     // Code
@@ -599,6 +637,9 @@
           if (currentFugitiveUid && p.uid !== currentFugitiveUid) return;
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
           addLocalFugitivePing(p.lat, p.lng, p.createdAt?.toDate?.() || new Date());
+
+          // UPDATED: update pursuit target
+          lastFugPingLL = L.latLng(p.lat, p.lng);
         });
       }, err => console.error("trail listener error", err));
     }
