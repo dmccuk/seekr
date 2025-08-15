@@ -35,7 +35,20 @@
     .brand{ font-weight:900; font-size:28px; letter-spacing:.6px; color:var(--ink) }
     .tag{ display:inline-block; font-size:13px; font-weight:600; color:var(--muted); padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line) }
 
+    /* brighter/larger variant for the role badge */
+    .tag.role{
+      font-size:16px;
+      font-weight:800;
+      color:var(--brand);
+      padding:8px 14px;
+      background:linear-gradient(180deg,#fff,#f0f4ff);
+      border-color:#cdd8ff;
+      box-shadow:0 8px 22px rgba(30,76,255,.14);
+    }
+
     .card{ position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
+    /* add space at the bottom so the floating FAB never overlaps the HUD/timer */
+    .mapCard{ padding-bottom:88px; }
     #map{ width:100%; height:min(68vh,560px); border-radius:12px; overflow:hidden }
 
     .hud{
@@ -136,12 +149,13 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
+        <!-- the tag will get the .role class applied once we know the role -->
         <div class="tag" id="gameTag">Loading game...</div>
       </div>
       <!-- Back button to demo removed (preset games) -->
     </header>
 
-    <section class="card">
+    <section class="card mapCard">
       <div id="map" aria-label="Live game map"></div>
 
       <!-- Recenter FAB (accessibility-friendly) -->
@@ -198,7 +212,6 @@
     // Dev/Test flags
     const url = new URL(location.href);
     const DEV = url.searchParams.get("dev") === "1";
-    // FIXED extra ')'
     const BOTS_PARAM = Math.max(0, Math.min(8, Number(url.searchParams.get("bots") || 0)));
     const FUGBOT_PARAM = url.searchParams.get("fugbot") === "1";
     const FUGBOT_SPEED_PARAM = Number(url.searchParams.get("fugs") || NaN);
@@ -305,7 +318,7 @@
         const u = Math.random(), v = Math.random();
         const r = Math.sqrt(u) * (areaRadiusM * 0.85);
         const th = 2 * Math.PI * v;
-        const dx = Math.cos(th) * r, dy = Math.sin(th) * r;
+               const dx = Math.cos(th) * r, dy = Math.sin(th) * r;
         const [lat, lng] = llFromOffset(areaCenterLL.lat, areaCenterLL.lng, dx, dy);
         const marker = L.circleMarker([lat, lng], {
           radius: 5, weight: 2, color: '#000000', fillColor: '#000000', fillOpacity: 0.9
@@ -822,9 +835,12 @@
       role = storedRole || null;
       if (!role) { location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
-      if (DEV) { btnTesting.style.display = 'inline-block'; testingPanel.style.display = 'block'; }
+      // Apply bigger/brighter role tag and grammar ("a Seeker"/"a Fugitive")
+      const roleLabel = role === "seeker" ? "a Seeker" : (role === "fugitive" ? "a Fugitive" : role);
+      gameTag.textContent = "Game " + code + " • You are " + roleLabel;
+      gameTag.classList.add("role");
 
-      gameTag.textContent = "Game " + code + " • You are " + role;
+      if (DEV) { btnTesting.style.display = 'inline-block'; testingPanel.style.display = 'block'; }
 
       if (role === "seeker") { startPresencePublisher(); startSeekersVisualizer(); }
       if (role === "fugitive") { startReadingSeekersForFugitive(); }
