@@ -35,7 +35,7 @@
     .brand{ font-weight:900; font-size:28px; letter-spacing:.6px; color:var(--ink) }
     .tag{ display:inline-block; font-size:13px; font-weight:600; color:var(--muted); padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line) }
 
-    .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
+    .card{ position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
     #map{ width:100%; height:min(68vh,560px); border-radius:12px; overflow:hidden }
 
     .hud{
@@ -93,6 +93,12 @@
     .testing-panel input[type="number"]{ width:90px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; }
     .testing-panel .fineprint{ font-size:11px; color:var(--muted); margin-top:6px }
     .testing-panel hr{ border:0; border-top:1px solid var(--line); margin:10px 0 6px 0; }
+
+    /* Recenter FAB */
+    .mapFab{
+      position:absolute; right:16px; bottom:16px; z-index:800;
+      padding:10px 12px;
+    }
   </style>
 </head>
 <body>
@@ -132,15 +138,19 @@
         <div class="brand">Seekr.run</div>
         <div class="tag" id="gameTag">Loading game...</div>
       </div>
-      <a href="demo.html" class="btn secondary">Back</a>
+      <!-- Back button to demo removed (preset games) -->
     </header>
 
     <section class="card">
       <div id="map" aria-label="Live game map"></div>
+
+      <!-- Recenter FAB (accessibility-friendly) -->
+      <button id="btnRecenter" class="btn secondary mapFab" type="button" aria-label="Recenter on my location" title="Recenter on my location">
+        Recenter
+      </button>
+
       <div class="hud">
         <span id="timePill" class="pill">Time, syncing…</span>
-        <button id="btnActions" class="btn secondary" type="button">Actions</button>
-        <button id="btnPing" class="btn" type="button" disabled>Send ping</button>
       </div>
       <div id="hint" class="notice"></div>
     </section>
@@ -152,7 +162,7 @@
       <h3 id="endTitle">Round ended</h3>
       <p id="endMsg">Thanks for playing.</p>
       <div class="actions">
-        <a href="demo.html" class="btn secondary">Back</a>
+        <a href="index.html" class="btn secondary">Home</a>
       </div>
     </div>
   </div>
@@ -182,10 +192,13 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    // Track all Firestore unsubscribes
+    const unsubs = [];
+
     // Dev/Test flags
     const url = new URL(location.href);
     const DEV = url.searchParams.get("dev") === "1";
-    const BOTS_PARAM = Math.max(0, Math.min(8, Number(url.searchParams.get("bots") || 0)));
+    const BOTS_PARAM = Math.max(0, Math.min(8, Number(url.searchParams.get("bots") || 0))));
     const FUGBOT_PARAM = url.searchParams.get("fugbot") === "1";
     const FUGBOT_SPEED_PARAM = Number(url.searchParams.get("fugs") || NaN);
     const FUGBOT_PING_PARAM  = Number(url.searchParams.get("fugp") || NaN);
@@ -195,8 +208,6 @@
     const timePill  = document.getElementById('timePill');
     const hint      = document.getElementById('hint');
     const toastEl   = document.getElementById('toast');
-    const btnPing   = document.getElementById('btnPing');
-    const btnActions= document.getElementById('btnActions');
 
     const endOverlay= document.getElementById('end');
     const endTitle  = document.getElementById('endTitle');
@@ -254,7 +265,7 @@
     let currentFugitiveUid = null;
 
     // NEW: pursuit target for bots
-    let lastFugPingLL = null; // UPDATED: seekers chase this
+    let lastFugPingLL = null;
 
     // Seeker-to-seeker layer
     let seekersLayer = null;
@@ -264,7 +275,7 @@
     const seekersLive = new Map();   // uid -> {lat,lng,updatedAt}
     const memberNames = new Map();   // uid -> display name
 
-    // --- Local SEEKER bots (UPDATED: add pursuit) ---
+    // --- Local SEEKER bots (with pursuit) ---
     let botsLayer = null;
     let botTimer = null;
     const bots = [];
@@ -305,15 +316,12 @@
     }
     function stepBots(){
       if (!bots.length || !areaCenterLL) return;
-      const dt = 2; // seconds / tick
+      const dt = 2;
       for (const b of bots){
-        // UPDATED: if we know last fugitive ping, head that way (with jitter)
         if (lastFugPingLL){
           const dirToFug = Math.atan2(lastFugPingLL.lng - b.lng, lastFugPingLL.lat - b.lat);
-          // blend current heading with pursuit heading (smooth turn)
           b.headingRad = b.headingRad*0.35 + dirToFug*0.65 + rand(-0.18, 0.18);
         } else {
-          // patrol: drift around, bias toward center if near edge
           b.headingRad += rand(-0.35, 0.35);
           const distFromCenter = map.distance([b.lat,b.lng], areaCenterLL);
           if (distFromCenter > areaRadiusM * 0.8){
@@ -345,7 +353,7 @@
     }
     let seekersNowPlus = [];
 
-    // --- Local FUGITIVE bot (UPDATED: head to extraction after reveal; writes pings if role=fugitive) ---
+    // --- Local FUGITIVE bot (heads to extraction after reveal) ---
     let fugLayer = null;
     let fugMoveTimer = null;
     let fugPingTimer = null;
@@ -378,7 +386,6 @@
 
       if (!fugLayer) fugLayer = L.layerGroup().addTo(map);
 
-      // spawn near center
       const dx0 = rand(-areaRadiusM*0.2, areaRadiusM*0.2);
       const dy0 = rand(-areaRadiusM*0.2, areaRadiusM*0.2);
       const [lat0, lng0] = llFromOffset(areaCenterLL.lat, areaCenterLL.lng, dx0, dy0);
@@ -389,19 +396,16 @@
 
       fug = { lat:lat0, lng:lng0, headingRad: rand(0, Math.PI*2), speedMps: speed, marker, wanderTo: null };
 
-      // movement — wander until we know extraction, then beeline
       fugMoveTimer = setInterval(()=>{
         if (!fug || !areaCenterLL) return;
 
-        // If extraction known on this (fugitive) tab, go for it; else wander to random points
         const hasTarget = !!secretLL;
         let target = null;
 
         if (hasTarget){
-          target = secretLL; // revealed extraction
+          target = secretLL;
         } else {
           if (!fug.wanderTo || map.distance([fug.lat,fug.lng], fug.wanderTo) < 15){
-            // pick a new wander waypoint in-zone
             const u = Math.random(), v = Math.random();
             const r = Math.sqrt(u) * (areaRadiusM * 0.85);
             const th = 2*Math.PI*v;
@@ -412,7 +416,6 @@
           target = fug.wanderTo;
         }
 
-        // smooth turn toward target, light jitter, bias inwards near edge
         const dirToT = Math.atan2(target.lng - fug.lng, target.lat - fug.lat);
         fug.headingRad = fug.headingRad*0.4 + dirToT*0.6 + rand(-0.12, 0.12);
 
@@ -423,14 +426,12 @@
         fug.lat = lat; fug.lng = lng;
         fug.marker.setLatLng([lat,lng]);
 
-        // If you're a seeker, allow a local "tag the bot" toast for fun
         if (role === "seeker" && lastCoords){
           const d = map.distance([lastCoords.latitude,lastCoords.longitude], [lat,lng]);
           if (d <= tagMeters){ toast("You tagged the fugitive bot"); }
         }
       }, 1500);
 
-      // pings — if we're on a fugitive tab, write to Firestore so seekers can chase; else local-only
       ensureTrailLayer();
       addLocalFugitivePing(fug.lat, fug.lng, new Date());
 
@@ -447,10 +448,7 @@
           }catch(e){ console.warn("fugitive bot ping failed", e); }
         }
 
-        // Always keep a local trail for this tab
         addLocalFugitivePing(fug.lat, fug.lng, now);
-
-        // Update pursuit target instantly on *this* client
         lastFugPingLL = L.latLng(fug.lat, fug.lng);
       }, Math.max(5, pingS) * 1000);
 
@@ -481,13 +479,23 @@
     // Code
     const code = url.searchParams.get("code")?.toUpperCase() || "";
 
-    // Map init
+    // Map init (prefer Canvas renderer)
     function initMap(){
-      map = L.map('map', { zoomControl:true, attributionControl:false });
+      map = L.map('map', { zoomControl:true, attributionControl:false, preferCanvas:true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
       map.setView([51.505, -0.09], 15);
     }
     initMap();
+
+    // Recenter FAB
+    document.getElementById('btnRecenter')?.addEventListener('click', () => {
+      if (lastCoords && map) {
+        map.setView([lastCoords.latitude, lastCoords.longitude], Math.max(map.getZoom(), 16));
+      } else {
+        toast("Waiting for your location…");
+      }
+    });
+
     startGeoWatch();
 
     function updateMyMarker(lat, lng, recenter = false){
@@ -566,7 +574,21 @@
       );
     }
 
+    async function cleanupPresence(){
+      try {
+        const uid = auth.currentUser?.uid;
+        if (uid && role === "seeker") {
+          await setDoc(
+            doc(db, "games", code, "presence", uid),
+            { role: "seeker", offline: true, lat: null, lng: null, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+        }
+      } catch {}
+    }
+
     function stopAllRealtime(){
+      // intervals/timers
       if (tickId) { clearInterval(tickId); tickId = null; }
       if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
       if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
@@ -574,8 +596,12 @@
       if (botTimer) { clearInterval(botTimer); botTimer = null; }
       if (fugMoveTimer) { clearInterval(fugMoveTimer); fugMoveTimer = null; }
       if (fugPingTimer) { clearInterval(fugPingTimer); fugPingTimer = null; }
+
+      // geolocation
       if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
-      btnPing.disabled = true;
+
+      // Firestore listeners
+      unsubs.splice(0).forEach(u => { try{ u(); }catch{} });
     }
 
     function maybeCheckExtractionWin(coords){
@@ -602,51 +628,27 @@
       }
     }
 
-    function watchMyPings(uid){
-      const qMy = query(collection(db, "games", code, "pings"), where("uid", "==", uid), orderBy("createdAt", "desc"), limit(1));
-      onSnapshot(qMy, snap => {
-        snap.forEach(d => {
-          const p = d.data();
-          const ll = [p.lat, p.lng];
-          if (!myMarker) { myMarker = L.circleMarker(ll, { radius:8, weight:3, color:'#1e4cff', fillColor:'#1e4cff', fillOpacity:.35 }).addTo(map); }
-          else { myMarker.setLatLng(ll); }
-          if (map) map.setView(ll, Math.max(map.getZoom(), 15));
-        });
-      });
-    }
-
-    async function saveCurrentPing(reason = 'auto'){
-      if (!lastCoords || gameEnded) return;
-      try{
-        const uid = auth.currentUser?.uid || null;
-        await addDoc(collection(db, "games", code, "pings"), {
-          lat: lastCoords.latitude, lng: lastCoords.longitude, role, uid, reason, createdAt: serverTimestamp()
-        });
-      }catch(e){ console.warn("auto ping failed", e); }
-    }
-
     // Seeker trail (fugitive path)
     function startSeekerTrail(){
       if (trailLayer) return;
       ensureTrailLayer();
       const qTrail = query(collection(db, "games", code, "pings"), where("role", "==", "fugitive"), orderBy("createdAt", "asc"));
-      onSnapshot(qTrail, snap => {
+      const u = onSnapshot(qTrail, snap => {
         snap.docChanges().forEach(ch => {
           if (ch.type !== "added") return;
           const p = ch.doc.data();
           if (currentFugitiveUid && p.uid !== currentFugitiveUid) return;
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
           addLocalFugitivePing(p.lat, p.lng, p.createdAt?.toDate?.() || new Date());
-
-          // UPDATED: update pursuit target
           lastFugPingLL = L.latLng(p.lat, p.lng);
         });
       }, err => console.error("trail listener error", err));
+      unsubs.push(u);
     }
 
     function startSecretListener(){
       const secretRef = doc(db, "games", code, "private", "secret");
-      onSnapshot(secretRef, snap => {
+      const u = onSnapshot(secretRef, snap => {
         if (!snap.exists() || extractMarker) return;
         const { lat, lng } = snap.data() || {};
         if (typeof lat !== "number" || typeof lng !== "number") return;
@@ -655,6 +657,7 @@
         map.setView([lat, lng], Math.max(map.getZoom(), 16));
         toast("Extraction revealed, get within 10 meters to win.");
       }, err => console.error("Secret listener error", err));
+      unsubs.push(u);
     }
 
     // Seekers publish their own presence (5s cadence)
@@ -676,10 +679,11 @@
     // Fugitives read seekers for tag detection
     function startReadingSeekersForFugitive(){
       const qSeekers = query(collection(db, "games", code, "presence"), where("role", "==", "seeker"));
-      onSnapshot(qSeekers, snap => {
+      const u = onSnapshot(qSeekers, snap => {
         seekersNow = snap.docs.map(d => d.data()).filter(d => typeof d.lat === "number" && typeof d.lng === "number");
         renderSeekersNowPlus();
       }, err => console.error("presence read error", err));
+      unsubs.push(u);
     }
 
     // Seekers see other seekers (and we inject bots locally)
@@ -687,15 +691,18 @@
       if (seekersLayer) return;
       seekersLayer = L.layerGroup().addTo(map);
       const myId = auth.currentUser?.uid;
-      onSnapshot(collection(db, "games", code, "members"), snap => {
+
+      const u1 = onSnapshot(collection(db, "games", code, "members"), snap => {
         snap.forEach(docu => {
           const d = docu.data() || {};
           const nm = d.name || d.displayName || d.nickname || (d.role === 'fugitive' ? 'Fugitive' : 'Seeker');
           memberNames.set(docu.id, String(nm));
         });
       });
+      unsubs.push(u1);
+
       const qSeekers = query(collection(db, "games", code, "presence"), where("role", "==", "seeker"));
-      onSnapshot(qSeekers, snap => {
+      const u2 = onSnapshot(qSeekers, snap => {
         seekersLive.clear();
         snap.forEach(docu => {
           const d = docu.data() || {};
@@ -705,6 +712,8 @@
         });
         if (!seekersRenderTimer) renderSeekersImmediate();
       });
+      unsubs.push(u2);
+
       seekersRenderTimer = setInterval(renderSeekersImmediate, SEEKERS_RENDER_MS);
     }
     function renderSeekersImmediate(){
@@ -719,7 +728,6 @@
         mk.bindTooltip(name, { permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"seekLabel" });
         seekersMarkers.set(uid, mk);
       });
-      // also show local seeker bots
       if (DEV && bots.length){
         for (const b of bots){
           L.circleMarker([b.lat,b.lng], { radius:5, weight:2, color:'#000', fillColor:'#000', fillOpacity:0.9 })
@@ -796,8 +804,6 @@
       if (DEV) { btnTesting.style.display = 'inline-block'; testingPanel.style.display = 'block'; }
 
       gameTag.textContent = "Game " + code + " • You are " + role;
-      const uid = auth.currentUser?.uid;
-      if (uid) watchMyPings(uid);
 
       if (role === "seeker") { startPresencePublisher(); startSeekersVisualizer(); }
       if (role === "fugitive") { startReadingSeekersForFugitive(); }
@@ -811,7 +817,7 @@
       } catch (e) { console.warn("Server prime failed:", e); }
 
       // Live updates
-      onSnapshot(
+      const uGame = onSnapshot(
         gameRef,
         snap => {
           if (!snap.exists()) { hint.textContent = "Game not found"; stopAllRealtime(); return; }
@@ -874,34 +880,25 @@
           if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) { saveCurrentPing("round-start").catch(()=>{}); didInitialAutoPing = true; }
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) { startSecretListener(); }
           startCountdown({ startMs, endMs, revealAtMs });
-
-          btnPing.disabled = false;
         },
         err => { console.error("onSnapshot error for games/%s", code, err); hint.textContent = "Cannot read game, check Firestore rules."; stopAllRealtime(); }
       );
+      unsubs.push(uGame);
     });
 
     signInAnonymously(auth).catch(console.error);
 
-    // Actions button
-    document.getElementById('btnActions').addEventListener('click', () => {
-      toast("Actions coming soon, Decoy Ping, Delay Reveal.");
+    // Visibility/pagetear-down: presence cleanup for seekers
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) cleanupPresence().catch(()=>{});
     });
-
-    // Manual ping button
-    btnPing.addEventListener('click', () => {
-      if (!('geolocation' in navigator)) { toast("Location not available"); return; }
-      const uid = auth.currentUser?.uid || null;
-      navigator.geolocation.getCurrentPosition(async pos => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        await addDoc(collection(db, "games", code, "pings"), { lat, lng, role, uid, createdAt: serverTimestamp() });
-        if (map) map.setView([lat, lng], Math.max(map.getZoom(), 16));
-        toast("Ping sent");
-      }, () => toast("Could not get location"), { enableHighAccuracy: true, timeout: 12000 });
+    window.addEventListener('pagehide', () => { cleanupPresence(); });
+    window.addEventListener('beforeunload', () => {
+      cleanupPresence();
+      stopAllRealtime();
+      stopFugitiveBot();
+      stopBots();
     });
-
-    // Cleanup
-    window.addEventListener('beforeunload', () => { stopAllRealtime(); stopFugitiveBot(); stopBots(); });
   </script>
 </body>
 </html>
