@@ -197,7 +197,7 @@
         <div class="two">
           <div class="stack">
             <label for="gameLen">Game length, minutes</label>
-            <input id="gameLen" type="number" min="5" max="240" step="5" value="30" />
+            <input id="gameLen" type="number" min="5" max="1440" step="5" value="30" />
           </div>
           <div class="stack">
             <label for="tagDist">Tag distance, meters</label>
@@ -209,7 +209,7 @@
         <div class="two" style="margin-top:10px;">
           <div class="stack">
             <label for="revealRemain">Reveal extraction when <strong>minutes remain</strong></label>
-            <input id="revealRemain" type="number" min="1" max="239" step="1" value="15" />
+            <input id="revealRemain" type="number" min="1" max="1439" step="1" value="15" />
           </div>
           <div class="stack">
             <label for="pingMins">Fugitive ping interval, minutes</label>
@@ -376,18 +376,18 @@
     let revealDirty = false;
     function autoSetRevealIfNotDirty(){
       if (revealDirty) return;
-      const gl = clampNum(Number(gameLen.value), 5, 240, 30);
+      const gl = clampNum(Number(gameLen.value), 5, 1440, 30);
       const auto = Math.max(1, Math.min(gl - 1, Math.round(gl * 0.5)));
       revealRemain.value = auto;
       revealRemain.max = String(Math.max(1, gl - 1));
     }
     gameLen.addEventListener('input', () => {
-      const gl = clampNum(Number(gameLen.value), 5, 240, 30);
+      const gl = clampNum(Number(gameLen.value), 5, 1440, 30);
       gameLen.value = gl;
       if (!revealDirty) autoSetRevealIfNotDirty(); else revealRemain.max = String(Math.max(1, gl - 1));
     });
     revealRemain.addEventListener('input', () => {
-      const gl = clampNum(Number(gameLen.value), 5, 240, 30);
+      const gl = clampNum(Number(gameLen.value), 5, 1440, 30);
       const rr = clampNum(Number(revealRemain.value), 1, gl - 1, Math.round(gl * 0.5));
       revealRemain.value = rr;
       revealDirty = true;
@@ -586,7 +586,7 @@
       if(code){ codeEl.textContent = code; }
       if(Number.isFinite(r)){ radiusKm.value = clampNum(r, 0.2, 200, 0.6); radiusKm.dispatchEvent(new Event('input')); }
       if(Number.isFinite(u)){ uncertaintyM.value = clampNum(u, 10, 200, 50); uncertaintyM.dispatchEvent(new Event('input')); }
-      if(Number.isFinite(g)){ gameLen.value = clampNum(g, 5, 240, 30); autoSetRevealIfNotDirty(); }
+      if(Number.isFinite(g)){ gameLen.value = clampNum(g, 5, 1440, 30); autoSetRevealIfNotDirty(); }
       if(Number.isFinite(p)){ pingMins.value = clampNum(p, 1, 15, 5); }
       if(Number.isFinite(t)){ tagDist.value = clampNum(t, 2, 50, 8); }
       autoSetRevealIfNotDirty(); // ensure bounds reflect current game length
