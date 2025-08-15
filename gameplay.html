@@ -98,7 +98,7 @@
     .testing-panel{
       position: fixed; right: 16px; top: 68px; z-index: 9999; display:none;
       background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.12);
-      width: 280px;
+      width: 280px.
     }
     .testing-panel h4{ margin:8px 0 6px 0; font-size:14px; font-weight:900 }
     .testing-panel .row{ display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap }
@@ -174,13 +174,12 @@
         <!-- the tag will get the .role class applied once we know the role -->
         <div class="tag" id="gameTag">Loading game...</div>
       </div>
-      <!-- Back button to demo removed (preset games) -->
     </header>
 
     <section class="card mapCard">
       <div id="map" aria-label="Live game map"></div>
 
-      <!-- Recenter FAB (accessibility-friendly) -->
+      <!-- Recenter FAB -->
       <button id="btnRecenter" class="btn secondary mapFab" type="button" aria-label="Recenter on my location" title="Recenter on my location">
         Recenter
       </button>
@@ -418,7 +417,9 @@
       if (!trailLine)  trailLine  = L.polyline([], { color:'#ff9500', weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
     }
 
+    // SEEKER-ONLY renderer for fugitive pings/trail
     function addLocalFugitivePing(lat, lng, when = new Date()){
+      if (role !== "seeker") return; // <— only seekers see yellow pins
       ensureTrailLayer();
       trailLine.addLatLng([lat, lng]);
       const mk = L.circleMarker([lat,lng], { radius:5, weight:2, color:'#ff9500', fillColor:'#ff9500', fillOpacity:0.9 }).addTo(trailLayer);
@@ -486,8 +487,10 @@
         }
       }, 1500);
 
-      ensureTrailLayer();
-      addLocalFugitivePing(fug.lat, fug.lng, new Date());
+      // Only seekers should see the bot’s breadcrumb trail
+      if (role === "seeker") {
+        addLocalFugitivePing(fug.lat, fug.lng, new Date());
+      }
 
       fugPingTimer = setInterval(async ()=>{
         if (!fug) return;
@@ -502,7 +505,9 @@
           }catch(e){ console.warn("fugitive bot ping failed", e); }
         }
 
-        addLocalFugitivePing(fug.lat, fug.lng, now);
+        if (role === "seeker") {
+          addLocalFugitivePing(fug.lat, fug.lng, now);
+        }
         lastFugPingLL = L.latLng(fug.lat, fug.lng);
       }, Math.max(5, pingS) * 1000);
 
@@ -592,9 +597,12 @@
           role, uid, reason,
           createdAt: serverTimestamp()
         });
-        // Show my own breadcrumb if I'm the fugitive
-        if (role === "fugitive"){
+        // Don't draw yellow pins for fugitives (seekers render via listener)
+        if (role === "seeker"){
           addLocalFugitivePing(lastCoords.latitude, lastCoords.longitude, new Date());
+        }
+        if (role === "fugitive"){
+          // still update the pursuit helper, but no drawing
           lastFugPingLL = L.latLng(lastCoords.latitude, lastCoords.longitude);
         }
       }catch(e){ console.warn("saveCurrentPing failed", e); }
@@ -925,7 +933,7 @@
       name.textContent = d.name || 'Player';
       const text = document.createElement('span');
       text.className = 'text';
-      text.textContent = d.text; // safe: no HTML injection
+      text.textContent = d.text;
       const time = document.createElement('span');
       time.className = 'time';
       const when = d.createdAt?.toDate?.() || new Date();
@@ -957,7 +965,6 @@
       role = storedRole || null;
       if (!role) { location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
-      // Apply bigger/brighter role tag and grammar ("a Seeker"/"a Fugitive")
       const roleLabel = role === "seeker" ? "a Seeker" : (role === "fugitive" ? "a Fugitive" : role);
       gameTag.textContent = "Game " + code + " • You are " + roleLabel;
       gameTag.classList.add("role");
@@ -972,7 +979,7 @@
 
       const gameRef = doc(db, "games", code);
 
-      // PRIME from server to avoid 00:01 drift
+      // PRIME from server (reduce timer drift)
       try {
         const srv = await getDocFromServer(gameRef);
         if (srv.exists()) { startCountdown(computeTimes(srv.data())); }
@@ -987,7 +994,7 @@
 
           if (g.status === "lobby") { toast("Waiting in lobby…"); location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
-          // Fugitive changes reset trail
+          // Fugitive changes reset trail (seekers only)
           const nextFug = g.fugitiveUid || null;
           const fugChanged = nextFug !== currentFugitiveUid;
           currentFugitiveUid = nextFug;
@@ -1031,7 +1038,6 @@
             if (autoPingId && autoPingEveryMs !== desiredMs) { clearInterval(autoPingId); autoPingId = null; }
             if (!autoPingId && desiredMs > 0) {
               autoPingEveryMs = desiredMs;
-              // send a single immediate ping if GPS is ready and we haven't done the initial one yet
               if (lastCoords && !didInitialAutoPing) {
                 didInitialAutoPing = true;
                 saveCurrentPing("interval-start").catch(()=>{ didInitialAutoPing = false; });
@@ -1043,7 +1049,7 @@
           // Times & countdown
           const { startMs, endMs, revealAtMs } = computeTimes(g);
           gameLive = g.status === "live";
-          // if the round just went live (or GPS just arrived), fire the first breadcrumb ASAP
+          // first breadcrumb ASAP when live + GPS
           maybeInitialFugitivePing("round-start");
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) { startSecretListener(); }
           startCountdown({ startMs, endMs, revealAtMs });
