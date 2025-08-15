@@ -48,7 +48,7 @@
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
 
-    /* Join overlay (kept, but you now redirect to lobby when status=="lobby") */
+    /* Overlays */
     .overlay{ position:fixed; inset:0; background:rgba(14,18,32,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:9999; }
     .overlay .sheet{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; max-width:420px; width:min(92vw,420px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
     .overlay h3{ margin:0 0 8px 0; font-size:20px; font-weight:900 }
@@ -56,7 +56,7 @@
     .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
     .overlay .actions .btn{ min-width:120px }
 
-    /* time labels for seeker trail pings */
+    /* Labels for pings/trails */
     .leaflet-tooltip.trailLabel{
       background: rgba(255,255,255,.9);
       border: 1px solid var(--line);
@@ -65,6 +65,16 @@
       font-size: 11px;
       color: var(--ink);
       box-shadow: 0 2px 6px rgba(0,0,0,.1);
+    }
+    /* Tiny seeker name labels */
+    .leaflet-tooltip.seekLabel{
+      background: rgba(255,255,255,.92);
+      border: 1px solid #dde3ef;
+      border-radius: 6px;
+      padding: 1px 4px;
+      font-size: 10px;
+      color:#1c2437;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
   </style>
 </head>
@@ -87,18 +97,6 @@
       </div>
       <div id="hint" class="notice"></div>
     </section>
-  </div>
-
-  <!-- Join overlay (unused now) -->
-  <div id="join" class="overlay" role="dialog" aria-modal="true" aria-labelledby="joinTitle" aria-hidden="true">
-    <div class="sheet">
-      <h3 id="joinTitle">Join this round</h3>
-      <p>Pick a side. You can open this on multiple phones.</p>
-      <div class="actions">
-        <button id="btnJoinF" class="btn" type="button">Fugitive</button>
-        <button id="btnJoinS" class="btn secondary" type="button">Seeker</button>
-      </div>
-    </div>
   </div>
 
   <!-- End-of-game overlay -->
@@ -136,7 +134,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // UI
+    // UI refs
     const gameTag   = document.getElementById('gameTag');
     const timePill  = document.getElementById('timePill');
     const hint      = document.getElementById('hint');
@@ -150,7 +148,7 @@
 
     // Map + game state
     let map, myMarker, extractMarker;
-    let role = null;              // "fugitive" | "seeker"
+    let role = null;
     let uncertaintyM = 50;
     let tagMeters = 2;
     let tickId = null;
@@ -165,7 +163,7 @@
     // Presence / trail
     let lastCoords = null;
     let presenceTimer = null;
-    let seekersNow = [];
+    let seekersNow = [];   // fugitives read this for tagging
     let secretLL = null;
     let gameEnded = false;
 
@@ -174,12 +172,20 @@
     let autoPingEveryMs = 0;
     let didInitialAutoPing = false;
 
-    // Seeker trail
-    const trailColor = '#ff9500';
+    // Seeker trail (fugitive)
+    const trailColor = '#ff9500'; // orange
     let trailLayer = null;
     let trailLine = null;
-    let trailListenerStarted = false;   // NEW: ensure seekers always start the listener
-    let currentFugitiveUid = null;      // NEW: filter trail points to active fugitive
+    let trailListenerStarted = false;
+    let currentFugitiveUid = null;
+
+    // Seeker-to-seeker layer (new)
+    let seekersLayer = null;
+    const seekersMarkers = new Map(); // uid -> L.circleMarker
+    let seekersRenderTimer = null;
+    const SEEKERS_RENDER_MS = 60000; // show at 1-min cadence
+    const seekersLive = new Map();   // uid -> {lat,lng,updatedAt}
+    const memberNames = new Map();   // uid -> display name
 
     // Code
     const code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
@@ -346,7 +352,7 @@
 
     // Seeker trail — robust & filtered to the active fugitive
     function startSeekerTrail(){
-      if (trailLayer) return; // only wire once
+      if (trailLayer) return;
 
       trailLayer = L.layerGroup().addTo(map);
       trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
@@ -362,7 +368,7 @@
           if (ch.type !== "added") return;
           const p = ch.doc.data();
 
-          // Filter by current fugitive if known
+          // filter by currently active fugitive (if set)
           if (currentFugitiveUid && p.uid !== currentFugitiveUid) return;
 
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
@@ -416,6 +422,7 @@
       });
     }
 
+    // Seekers publish their own presence (5s cadence for tag accuracy)
     function startPresencePublisher(){
       if (presenceTimer || role !== "seeker") return;
       const myId = auth.currentUser?.uid;
@@ -439,8 +446,8 @@
       presenceTimer = setInterval(publish, 5000);
     }
 
-    function startReadingSeekers(){
-      if (role !== "fugitive") return;
+    // Fugitives read seekers for tag detection
+    function startReadingSeekersForFugitive(){
       const qSeekers = query(
         collection(db, "games", code, "presence"),
         where("role", "==", "seeker")
@@ -450,6 +457,74 @@
           .map(d => d.data())
           .filter(d => typeof d.lat === "number" && typeof d.lng === "number");
       }, err => console.error("presence read error", err));
+    }
+
+    // Seekers see other seekers as black dots with tiny labels (1-min render cadence)
+    function startSeekersVisualizer(){
+      if (seekersLayer) return;
+      seekersLayer = L.layerGroup().addTo(map);
+
+      const myId = auth.currentUser?.uid;
+
+      // Load/display member names (for labels)
+      onSnapshot(collection(db, "games", code, "members"), snap => {
+        snap.forEach(docu => {
+          const d = docu.data() || {};
+          const nm = d.name || d.displayName || d.nickname || (d.role === 'fugitive' ? 'Fugitive' : 'Seeker');
+          memberNames.set(docu.id, String(nm));
+        });
+        // refresh labels on next render
+      });
+
+      // Live presence for seekers
+      const qSeekers = query(
+        collection(db, "games", code, "presence"),
+        where("role", "==", "seeker")
+      );
+      onSnapshot(qSeekers, snap => {
+        snap.forEach(docu => {
+          const d = docu.data() || {};
+          if (typeof d.lat === "number" && typeof d.lng === "number") {
+            seekersLive.set(docu.id, { lat:d.lat, lng:d.lng, updatedAt:d.updatedAt });
+          }
+        });
+        // We render on a 1-min timer; also nudge an immediate render once at start.
+        if (!seekersRenderTimer) immediateRenderSeekers();
+      });
+
+      // Render every minute
+      seekersRenderTimer = setInterval(renderSeekers, SEEKERS_RENDER_MS);
+      // and once right away so the map doesn't look empty
+      function immediateRenderSeekers(){ renderSeekers(true); }
+
+      function renderSeekers(isImmediate=false){
+        if (!seekersLayer) return;
+        // Clear and redraw (cheap: only a few markers)
+        seekersLayer.clearLayers();
+        seekersMarkers.clear();
+
+        seekersLive.forEach((val, uid) => {
+          if (uid === myId) return; // avoid duplicating my own blue dot
+          const ll = [val.lat, val.lng];
+          const mk = L.circleMarker(ll, {
+            radius: 5,
+            weight: 2,
+            color: '#000000',
+            fillColor: '#000000',
+            fillOpacity: 0.9
+          }).addTo(seekersLayer);
+
+          const name = memberNames.get(uid) || 'Seeker';
+          mk.bindTooltip(name, {
+            permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"seekLabel"
+          });
+
+          seekersMarkers.set(uid, mk);
+        });
+
+        // If we rendered immediately, let the minute timer handle future refreshes
+        if (isImmediate) { /* no-op */ }
+      }
     }
 
     // Auth + wire up
@@ -477,8 +552,13 @@
       const uid = auth.currentUser?.uid;
       if (uid) watchMyPings(uid);
 
-      if (role === "seeker") startPresencePublisher();
-      if (role === "fugitive") startReadingSeekers();
+      if (role === "seeker") {
+        startPresencePublisher();
+        startSeekersVisualizer();   // <-- NEW: seekers see other seekers
+      }
+      if (role === "fugitive") {
+        startReadingSeekersForFugitive();
+      }
 
       // Listen to game doc
       const gameRef = doc(db, "games", code);
@@ -493,7 +573,7 @@
 
           const g = snap.data();
 
-          // Redirect seekers/fugitives to lobby if round hasn't started
+          // Redirect to lobby if not live yet
           if (g.status === "lobby") {
             toast("Waiting in lobby…");
             location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
@@ -520,6 +600,7 @@
             if (tickId) { clearInterval(tickId); tickId = null; }
             if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
             if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
+            if (seekersRenderTimer) { clearInterval(seekersRenderTimer); seekersRenderTimer = null; }
             btnPing.disabled = true;
             timePill.textContent = "Time, round ended";
             showEndOverlay(g.winner || "unknown", g.endReason || "");
@@ -556,12 +637,12 @@
             }
           }
 
-          // Misc rules
+          // Rules
           const cfg = g.lobbyConfig || {};
           uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
           tagMeters    = Number(g.rules?.tag_meters ?? 2);
 
-          // Fugitive auto pings vs seeker trail
+          // Fugitive auto pings vs seeker trail attachment
           const pingMinutes = Number(g.rules?.ping_minutes || 0);
           const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
 
@@ -594,7 +675,6 @@
 
           const endsAtMs = toMs(g.endsAt) || toMs(g.revealSchedule?.endAt);
           const startMs  = toMs(g.startsAt);
-
           const rulesMinutes = Number(g.rules?.game_minutes || 0);
           const durMs = g.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60 * 1000 : 0);
 
@@ -696,6 +776,7 @@
       if (tickId) clearInterval(tickId);
       if (autoPingId) clearInterval(autoPingId);
       if (presenceTimer) clearInterval(presenceTimer);
+      if (seekersRenderTimer) clearInterval(seekersRenderTimer);
     });
   </script>
 </body>
