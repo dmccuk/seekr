@@ -50,7 +50,6 @@
     }
     .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
     .btn.ghost{ background:#fff; color:#0e1220; border:1px solid var(--line); box-shadow:none }
-    .btn[disabled]{ opacity:.55; cursor:not-allowed }
     .btn:focus-visible{ outline:3px solid var(--focus); outline-offset:2px }
 
     /* How it works strip */
@@ -186,9 +185,9 @@
             <label for="uncertaintyM">Last ping uncertainty, m</label>
             <input id="uncertaintyM" type="number" min="10" max="200" step="5" value="50" />
           </div>
-          <div class="row">
-            <button id="btnSecretExtract" class="btn ghost" type="button" title="Auto place a hidden extraction inside the zone">Set extraction point</button>
-            <span id="extractReadout" class="pill" style="display:none;">Extraction location set (hidden)</span>
+          <div class="stack">
+            <label class="muted">Extraction</label>
+            <div class="pill">Auto-placed inside the zone on “Go to Lobby”</div>
           </div>
         </div>
 
@@ -217,7 +216,7 @@
           </div>
         </div>
 
-        <!-- NEW: Reveal timing control -->
+        <!-- Reveal timing control -->
         <div class="two" style="margin-top:10px;">
           <div class="stack">
             <label for="revealRemain">Reveal extraction when <strong>minutes remain</strong></label>
@@ -249,7 +248,7 @@
           </div>
 
           <!-- Single CTA -->
-          <button id="btnGoLobby" class="btn" type="button" disabled>Go to Lobby</button>
+          <button id="btnGoLobby" class="btn" type="button">Go to Lobby</button>
           <div id="status" class="footnote" aria-live="polite"></div>
 
           <div class="footnote">The lobby handles role selection and starting the round. Questions? <a href="index.html#faq">Check the FAQ</a>.</div>
@@ -265,7 +264,7 @@
       <p>Three steps and you are ready.</p>
       <div class="steps">
         <div>1, Drag the pin to set the center and adjust the radius.</div>
-        <div>2, Press Set extraction point to place a hidden destination (or we’ll auto-place it for you).</div>
+        <div>2, We’ll auto-place a hidden extraction point inside the zone when you go to the lobby.</div>
         <div>3, Pick rules (including reveal timing), generate a code, then go to the lobby.</div>
       </div>
       <div class="actions">
@@ -280,21 +279,14 @@
 
   <!-- MAP + DEMO LOGIC (non-module) -->
   <script>
-    // Map setup
-    let map, centerMarker, areaCircle, uncertaintyCircle, extractMarker;
-    let mapReady = false;
+    // Map setup (no manual extraction UI)
+    let map, centerMarker, areaCircle, uncertaintyCircle;
 
     const centerReadout    = document.getElementById('centerReadout');
     const radiusInput      = document.getElementById('radiusKm');
     const uncertaintyInput = document.getElementById('uncertaintyM');
-    const btnSecretExtract = document.getElementById('btnSecretExtract');
-    const extractReadout   = document.getElementById('extractReadout');
     const statusEl         = document.getElementById('status');
     const toastEl          = document.getElementById('toast');
-    const btnGoLobby       = document.getElementById('btnGoLobby');
-
-    // Secret extraction state
-    let secretPoint = null;
 
     function showToast(t){
       toastEl.textContent = t;
@@ -310,7 +302,7 @@
     function drawUncertainty(latlng, meters){
       if(!uncertaintyCircle){
         uncertaintyCircle = L.circle(latlng, {
-          radius: meters, color:'#f59f00', weight:2, fillColor:'#f59f00', fillOpacity:0.12, dashArray:'4,6', className:'uncertainty'
+          radius: meters, color:'#f59f00', weight:2, fillColor:'#f59f00', fillOpacity:0.12, dashArray:'4,6'
         }).addTo(map);
       }else{
         uncertaintyCircle.setLatLng(latlng);
@@ -336,10 +328,8 @@
         setCenterReadout(p);
       });
 
-      // Expose to module in a safe way
+      // Expose to module
       window.seekrCenterMarker = centerMarker;
-      mapReady = true;
-      btnGoLobby.disabled = false;
     }
 
     radiusInput.addEventListener('input', () => {
@@ -365,57 +355,6 @@
       n = Number.isFinite(n) ? n : fallback;
       return Math.max(min, Math.min(max, n));
     }
-
-    // Geo helpers
-    function destinationPoint(latlng, distanceMeters, bearingRad){
-      const R = 6371000;
-      const phi1 = latlng.lat * Math.PI / 180;
-      const lam1 = latlng.lng * Math.PI / 180;
-      const d = distanceMeters / R;
-      const th = bearingRad;
-
-      const sinPhi1 = Math.sin(phi1), cosPhi1 = Math.cos(phi1);
-      const sinD = Math.sin(d), cosD = Math.cos(d);
-      const sinTh = Math.sin(th), cosTh = Math.cos(th);
-
-      const sinPhi2 = sinPhi1 * cosD + cosPhi1 * sinD * cosTh;
-      const phi2 = Math.asin(sinPhi2);
-      const y = sinTh * sinD * cosPhi1;
-      const x = cosD - sinPhi1 * sinPhi2;
-      const lam2 = lam1 + Math.atan2(y, x);
-
-      return L.latLng(phi2 * 180 / Math.PI, lam2 * 180 / Math.PI);
-    }
-    function randomPointInCircle(center, radiusMeters){
-      const u = Math.random();
-      const v = Math.random();
-      const r = radiusMeters * Math.sqrt(u);
-      const th = 2 * Math.PI * v;
-      return destinationPoint(center, r, th);
-    }
-    function addExtractionMarker(latlng){
-      if (extractMarker){ map.removeLayer(extractMarker); }
-      extractMarker = L.marker(latlng, {
-        icon: L.divIcon({ className:'', html:'<div style="background:#1aa84b;color:#fff;border-radius:6px;padding:4px 6px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.25)">🏁 Extraction</div>' }),
-        interactive:false
-      }).addTo(map);
-    }
-
-    // Set secret extraction point (host can click this; it stays secret in Firestore subdoc)
-    btnSecretExtract.addEventListener('click', () => {
-      const center = centerMarker.getLatLng();
-      const radiusMeters = clamp(Number(radiusInput.value), 0.2, 50, 0.6) * 1000;
-      secretPoint = randomPointInCircle(center, radiusMeters);
-      addExtractionMarker(secretPoint);
-      extractReadout.style.display = 'inline-block';
-      extractReadout.textContent = 'Extraction location set (hidden)';
-      showToast('Extraction point set. It will be revealed to fugitives late in the round.');
-      statusEl.textContent = 'Extraction set (will save when you Go to Lobby)';
-      statusEl.style.color = 'var(--good)';
-
-      // expose for module save
-      window.seekrSecretPoint = { lat: secretPoint.lat, lng: secretPoint.lng };
-    });
   </script>
 
   <!-- DEMO UI + PRESETS + SHARE (module; includes Firebase) -->
@@ -504,7 +443,6 @@
       revealRemain.value = rr;
       revealDirty = true;
     });
-    // Initialize default reveal once
     autoSetRevealIfNotDirty();
 
     function clampNum(n, min, max, fallback){
@@ -546,19 +484,16 @@
 
     // Save config to Firestore as a lobby round, then go to lobby
     btnGoLobby.addEventListener('click', async () => {
-      if (btnGoLobby.disabled) return;
-
       const code = (codeEl.textContent.trim() || makeCode());
       if (!codeEl.textContent.trim()) {
         codeEl.textContent = code;
         updateUrlParam('code', code);
       }
 
-      // Gather UI state (map objects are exposed by non-module script)
+      // Map-ready guard (no popup)
       const centerMarker = window.seekrCenterMarker;
       const center = centerMarker?.getLatLng?.();
       if (!center) {
-        // Silent guard: keep disabled state rather than alert
         statusEl.textContent = 'Waiting for map…';
         statusEl.style.color = 'var(--muted)';
         return;
@@ -579,36 +514,30 @@
       };
       const lobbyConfig = { uncertaintyM: rules.uncertainty_m };
 
-      // Auto-set secret extraction if host didn't press the button
-      let secret = window.seekrSecretPoint;
-      if (!secret || typeof secret.lat !== "number" || typeof secret.lng !== "number") {
-        // lightweight reimplementation (matches non-module helper)
-        function destinationPoint(latlng, distanceMeters, bearingRad){
-          const R = 6371000;
-          const phi1 = latlng.lat * Math.PI / 180;
-          const lam1 = latlng.lng * Math.PI / 180;
-          const d = distanceMeters / R, th = bearingRad;
-          const sinPhi1 = Math.sin(phi1), cosPhi1 = Math.cos(phi1);
-          const sinD = Math.sin(d), cosD = Math.cos(d);
-          const sinTh = Math.sin(th), cosTh = Math.cos(th);
-          const sinPhi2 = sinPhi1 * cosD + cosPhi1 * sinD * cosTh;
-          const phi2 = Math.asin(sinPhi2);
-          const y = sinTh * sinD * cosPhi1;
-          const x = cosD - sinPhi1 * sinPhi2;
-          const lam2 = lam1 + Math.atan2(y, x);
-          return { lat: phi2 * 180/Math.PI, lng: lam2 * 180/Math.PI };
-        }
-        function randomPointInCircle(center, radiusMeters){
-          const u = Math.random(), v = Math.random();
-          const r = radiusMeters * Math.sqrt(u);
-          const th = 2 * Math.PI * v;
-          return destinationPoint(center, r, th);
-        }
-        const centerLL = { lat: center.lat, lng: center.lng };
-        const radiusM  = Number(radiusKm.value) * 1000;
-        const p = randomPointInCircle(centerLL, radiusM);
-        secret = { lat: p.lat, lng: p.lng };
+      // Always auto-generate a secret extraction inside the zone
+      function destinationPoint(latlng, distanceMeters, bearingRad){
+        const R = 6371000;
+        const phi1 = latlng.lat * Math.PI / 180;
+        const lam1 = latlng.lng * Math.PI / 180;
+        const d = distanceMeters / R, th = bearingRad;
+        const sinPhi1 = Math.sin(phi1), cosPhi1 = Math.cos(phi1);
+        const sinD = Math.sin(d), cosD = Math.cos(d);
+        const sinTh = Math.sin(th), cosTh = Math.cos(th);
+        const sinPhi2 = sinPhi1 * cosD + cosPhi1 * sinD * cosTh;
+        const phi2 = Math.asin(sinPhi2);
+        const y = sinTh * sinD * cosPhi1;
+        const x = cosD - sinPhi1 * sinPhi2;
+        const lam2 = lam1 + Math.atan2(y, x);
+        return { lat: phi2 * 180/Math.PI, lng: lam2 * 180/Math.PI };
       }
+      function randomPointInCircle(centerLL, radiusMeters){
+        const u = Math.random(), v = Math.random();
+        const r = radiusMeters * Math.sqrt(u);
+        const th = 2 * Math.PI * v;
+        return destinationPoint(centerLL, r, th);
+      }
+      const radiusM = Number(radiusKm.value) * 1000;
+      const secret = randomPointInCircle({ lat: center.lat, lng: center.lng }, radiusM);
 
       // Persist
       if (db && auth?.currentUser) {
@@ -624,7 +553,7 @@
             rules,
             lobbyConfig,
             updatedAt: serverTimestamp(),
-            // clear stale live state (important so lobby doesn’t think it’s live)
+            // clear stale live state (so lobby never thinks it’s live)
             startsAt: deleteField(),
             endsAt:   deleteField(),
             revealAt: deleteField(),
@@ -712,8 +641,7 @@
       if(Number.isFinite(g)){ gameLen.value = clampNum(g, 5, 240, 30); autoSetRevealIfNotDirty(); }
       if(Number.isFinite(p)){ pingMins.value = clampNum(p, 1, 15, 5); }
       if(Number.isFinite(t)){ tagDist.value = clampNum(t, 2, 50, 8); }
-      // ensure reveal bounds reflect current game length
-      autoSetRevealIfNotDirty();
+      autoSetRevealIfNotDirty(); // ensure bounds reflect current game length
     });
   </script>
 
