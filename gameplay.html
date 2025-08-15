@@ -198,7 +198,8 @@
     // Dev/Test flags
     const url = new URL(location.href);
     const DEV = url.searchParams.get("dev") === "1";
-    const BOTS_PARAM = Math.max(0, Math.min(8, Number(url.searchParams.get("bots") || 0))));
+    // FIXED extra ')'
+    const BOTS_PARAM = Math.max(0, Math.min(8, Number(url.searchParams.get("bots") || 0)));
     const FUGBOT_PARAM = url.searchParams.get("fugbot") === "1";
     const FUGBOT_SPEED_PARAM = Number(url.searchParams.get("fugs") || NaN);
     const FUGBOT_PING_PARAM  = Number(url.searchParams.get("fugp") || NaN);
@@ -748,6 +749,21 @@
       }
       return 0;
     }
+
+    // NEW: long-game formatter
+    function formatLeft(leftMs, useHMS){
+      const totalSec = Math.max(0, Math.floor(leftMs / 1000));
+      const s = totalSec % 60;
+      const m = Math.floor(totalSec / 60) % 60;
+      const h = Math.floor(totalSec / 3600);
+      if (useHMS) {
+        return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      } else {
+        const mm = Math.floor(totalSec / 60);
+        return `${mm}:${String(s).padStart(2,"0")}`;
+      }
+    }
+
     function computeTimes(g){
       const rulesMinutes = Number(g?.rules?.game_minutes || 0);
       const durationMs   = Number(g?.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60000 : 0));
@@ -763,10 +779,16 @@
       }
       return { startMs, endMs, revealAtMs, durationMs };
     }
+
+    // UPDATED: H:MM:SS for 60+ minute games
     function startCountdown({startMs, endMs, revealAtMs}){
       if (tickId) { clearInterval(tickId); tickId = null; }
       const now = Date.now();
       if (!startMs || !endMs || endMs <= now) { timePill.textContent = "Time, waiting"; return; }
+
+      const totalMs = (endMs && startMs) ? (endMs - startMs) : 0;
+      const useHMS = totalMs >= 60 * 60 * 1000; // 60+ minutes
+
       const tick = () => {
         const n = Date.now();
         if (n < startMs){
@@ -776,8 +798,7 @@
           return;
         }
         const left = Math.max(0, endMs - n);
-        const m = Math.floor(left / 60000), s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
-        timePill.textContent = `Time, ${m}:${s}`;
+        timePill.textContent = `Time, ${formatLeft(left, useHMS)}`;
         if (role === "fugitive" && revealAtMs && n >= revealAtMs && !extractMarker) startSecretListener();
         if (role === "seeker" && revealAtMs && n >= revealAtMs && !revealToastShown) { toast("Extraction location has been disclosed to fugitives."); revealToastShown = true; }
         if (left === 0) { clearInterval(tickId); tickId = null; }
