@@ -188,6 +188,12 @@
     const seekersLive = new Map();   // uid -> {lat,lng,updatedAt}
     const memberNames = new Map();   // uid -> display name
 
+    // --- Extraction radius config (from rules) ---
+    let extractionBaseRadiusM = 35;  // default if rule absent
+    let extractionWiden = false;     // rules.extraction_widen (bool)
+    let extractionCircle = null;     // L.circle around secretLL
+    let currentEndMs = 0;            // for grace window computation
+
     // Code
     const code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
 
@@ -301,10 +307,45 @@
       btnPing.disabled = true;
     }
 
+    // -------- Extraction radius helpers (FUGITIVE ONLY) --------
+    function clampNum(n, min, max, fallback){
+      n = Number.isFinite(n) ? n : fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function currentWinRadius(nowMs = Date.now()){
+      // Base from rules
+      let r = clampNum(Number(extractionBaseRadiusM), 5, 200, 35);
+      if (extractionWiden) r = Math.max(r, 50);        // widen option
+      if (currentEndMs && (currentEndMs - nowMs) <= 120000) {
+        r = Math.max(r, 60);                           // grace in last 2 minutes
+      }
+      return r;
+    }
+
+    function ensureExtractionViz(){
+      if (role !== "fugitive" || !secretLL) return;
+      const r = currentWinRadius();
+      if (!extractionCircle) {
+        extractionCircle = L.circle(secretLL, {
+          radius: r,
+          color: "#ff3b30",
+          weight: 2,
+          fillColor: "#ff3b30",
+          fillOpacity: 0.10,
+          dashArray: "4,6"
+        }).addTo(map);
+      } else {
+        extractionCircle.setRadius(r);
+        extractionCircle.setLatLng(secretLL);
+      }
+    }
+    // -----------------------------------------------------------
+
     function maybeCheckExtractionWin(coords){
       if (role !== "fugitive" || !secretLL || gameEnded) return;
       const d = map.distance([coords.latitude, coords.longitude], secretLL);
-      if (d <= 10){
+      if (d <= currentWinRadius()){
         toast("You reached extraction");
         endGame("fugitive", "extract");
       }
@@ -422,8 +463,9 @@
         }).addTo(map);
 
         secretLL = L.latLng(lat, lng);
+        ensureExtractionViz(); // draw the radius circle using current rules/time
         map.setView([lat, lng], Math.max(map.getZoom(), 16));
-        toast("Extraction revealed, get within 10 meters to win.");
+        toast(`Extraction revealed — get within ${Math.round(currentWinRadius())} m to win.`);
       }, err => {
         console.error("Secret listener error", err);
       });
@@ -499,7 +541,7 @@
 
       seekersRenderTimer = setInterval(renderSeekers, 60000);
 
-      function renderSeekers(immediate=false){
+      function renderSeekers(){
         if (!seekersLayer) return;
         seekersLayer.clearLayers();
         seekersMarkers.clear();
@@ -559,6 +601,8 @@
     function startCountdown({startMs, endMs, revealAtMs}){
       if (tickId) { clearInterval(tickId); tickId = null; }
 
+      currentEndMs = endMs; // keep for extraction radius grace computation
+
       const now = Date.now();
       if (!startMs || !endMs || endMs <= now) {
         timePill.textContent = "Time, waiting";
@@ -580,10 +624,15 @@
         const s = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
         timePill.textContent = `Time, ${m}:${s}`;
 
-        // extraction reveal gates
-        if (role === "fugitive" && revealAtMs && n >= revealAtMs && !extractMarker) {
-          startSecretListener();
+        // Wire/maintain extraction (fugitive only)
+        if (role === "fugitive") {
+          if (revealAtMs && n >= revealAtMs && !extractMarker) {
+            startSecretListener();
+          }
+          // keep the circle radius in sync with time-based grace
+          if (secretLL) ensureExtractionViz();
         }
+
         if (role === "seeker" && revealAtMs && n >= revealAtMs && !revealToastShown) {
           toast("Extraction location has been disclosed to fugitives.");
           revealToastShown = true;
@@ -591,7 +640,6 @@
 
         if (left === 0) {
           clearInterval(tickId); tickId = null;
-          // we don't end the game here; host does. But we stop ticking.
         }
       };
       tick();
@@ -637,6 +685,11 @@
         const srv = await getDocFromServer(gameRef);
         if (srv.exists()) {
           const g0 = srv.data();
+
+          // --- read radius rules early ---
+          extractionBaseRadiusM = clampNum(Number(g0?.rules?.extraction_radius_m ?? 35), 5, 200, 35);
+          extractionWiden = Boolean(g0?.rules?.extraction_widen ?? false);
+
           const times0 = computeTimes(g0);
           startCountdown(times0);
         }
@@ -662,6 +715,12 @@
             location.replace(`lobby.html?code=${encodeURIComponent(code)}`);
             return;
           }
+
+          // --- keep radius rules synced from game doc ---
+          extractionBaseRadiusM = clampNum(Number(g?.rules?.extraction_radius_m ?? 35), 5, 200, 35);
+          extractionWiden = Boolean(g?.rules?.extraction_widen ?? false);
+          // If already revealed, adjust the circle immediately
+          if (role === "fugitive" && secretLL) ensureExtractionViz();
 
           // Track current fugitive uid and reset trail if it changes
           const nextFug = g.fugitiveUid || null;
@@ -741,6 +800,7 @@
 
           // Times and countdown (strict — NO 95% fallbacks)
           const { startMs, endMs, revealAtMs } = computeTimes(g);
+          currentEndMs = endMs; // update for extraction grace logic
 
           if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) {
             saveCurrentPing("round-start").catch(()=>{});
