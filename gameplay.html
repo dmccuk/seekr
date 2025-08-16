@@ -250,8 +250,8 @@
 
     // Presence / trail
     let lastCoords = null;
-    let presenceTimer = null;
-    let seekersNow = [];   // live hunters from Firestore
+    let presenceTimer = null;   // <-- single declaration
+    let seekersNow = [];        // live hunters from Firestore
     let secretLL = null;
     let gameEnded = false;
 
@@ -268,20 +268,18 @@
     let extractBaseRadiusM   = 30;
     let extractFinalRadiusM  = 50;
     let extractExpandLastMin = 2;
-    let timeLeftMs = Number.POSITIVE_INFINITY;
+    let timeLeftMs = Number.POSITIVE_INFINITY; // <-- single declaration
     let expansionToastShown = false;
 
-    // Seeker trail (fugitive)
-    const trailColor = '#ff9500'; // orange
+    // Fugitive trail (for hunters)
+    const trailColor = '#ff9500';
     let trailLayer = null;
     let trailLine = null;
     let trailListenerStarted = false;
     let currentFugitiveUid = null;
-
-    // NEW: pursuit target for bots
     let lastFugPingLL = null;
 
-    // Seeker-to-seeker layer
+    // Hunters layer
     let seekersLayer = null;
     const seekersMarkers = new Map(); // uid -> L.circleMarker
     let seekersRenderTimer = null;
@@ -370,7 +368,7 @@
     let fugLayer = null;
     let fugMoveTimer = null;
     let fugPingTimer = null;
-    let fug = null; // {lat,lng,headingRad,speedMps, marker, wanderTo}
+    let fug = null;
 
     function ensureTrailLayer(){
       if (!trailLayer) trailLayer = L.layerGroup().addTo(map);
@@ -472,10 +470,11 @@
 
     // Toast helper
     function toast(t){
-      toastEl.textContent = t;
-      toastEl.style.display = 'block';
-      clearTimeout(toastEl._t);
-      toastEl._t = setTimeout(() => toastEl.style.display = 'none', 2200);
+      const el = document.getElementById('toast');
+      el.textContent = t;
+      el.style.display = 'block';
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.style.display = 'none', 2200);
     }
 
     // End overlay
@@ -516,7 +515,6 @@
           role, uid, reason,
           createdAt: serverTimestamp()
         });
-        // Store last known for bot pursuit (not shown to fugitive)
         if (role === "fugitive"){
           lastFugPingLL = L.latLng(lastCoords.latitude, lastCoords.longitude);
         }
@@ -626,13 +624,6 @@
       if (recenter && map) map.setView(ll, Math.max(map.getZoom(), 16));
     }
 
-    function toastOnce(key, msg){
-      if (toastOnce._shown?.has(key)) return;
-      toastOnce._shown ??= new Set();
-      toastOnce._shown.add(key);
-      toast(msg);
-    }
-
     async function cleanupPresence(){
       try {
         const uid = auth.currentUser?.uid;
@@ -647,7 +638,6 @@
     }
 
     function stopAllRealtime(){
-      // intervals/timers
       if (tickId) { clearInterval(tickId); tickId = null; }
       if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
       if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
@@ -657,10 +647,8 @@
       if (fugPingTimer) { clearInterval(fugPingTimer); fugPingTimer = null; }
       if (initialPingRetryTimer){ clearInterval(initialPingRetryTimer); initialPingRetryTimer = null; }
 
-      // geolocation
       if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
 
-      // Firestore listeners
       unsubs.splice(0).forEach(u => { try{ u(); }catch{} });
     }
 
@@ -730,7 +718,6 @@
     }
 
     // Hunters publish their own presence (5s cadence)
-    let presenceTimer = null;
     function startPresencePublisher(){
       if (presenceTimer || role !== "hunter" || gameEnded) return;
       const myId = auth.currentUser?.uid;
@@ -807,7 +794,7 @@
       }
     }
 
-    // --- Time helpers (single source of truth) ---
+    // --- Time helpers ---
     function toMs(v){
       if (!v) return 0;
       if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
@@ -820,18 +807,14 @@
       return 0;
     }
 
-    // long-game formatter
     function formatLeft(leftMs, useHMS){
       const totalSec = Math.max(0, Math.floor(leftMs / 1000));
       const s = totalSec % 60;
       const m = Math.floor(totalSec / 60) % 60;
       const h = Math.floor(totalSec / 3600);
-      if (useHMS) {
-        return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-      } else {
-        const mm = Math.floor(totalSec / 60);
-        return `${mm}:${String(s).padStart(2,"0")}`;
-      }
+      if (useHMS) return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      const mm = Math.floor(totalSec / 60);
+      return `${mm}:${String(s).padStart(2,"0")}`;
     }
 
     function computeTimes(g){
@@ -850,15 +833,13 @@
       return { startMs, endMs, revealAtMs, durationMs };
     }
 
-    // UPDATED: H:MM:SS for 60+ minute games
-    let timeLeftMs = Number.POSITIVE_INFINITY;
     function startCountdown({startMs, endMs, revealAtMs}){
       if (tickId) { clearInterval(tickId); tickId = null; }
       const now = Date.now();
       if (!startMs || !endMs || endMs <= now) { timePill.textContent = "Time, waiting"; return; }
 
       const totalMs = (endMs && startMs) ? (endMs - startMs) : 0;
-      const useHMS = totalMs >= 60 * 60 * 1000; // 60+ minutes
+      const useHMS = totalMs >= 60 * 60 * 1000;
 
       const tick = () => {
         const n = Date.now();
@@ -891,7 +872,6 @@
       if (!code) return;
       const qChat = query(collection(db, "games", code, "chat"), orderBy("createdAt", "asc"), limit(200));
       const u = onSnapshot(qChat, snap => {
-        // Rebuild quickly for simplicity/ordering
         chatLog.innerHTML = '';
         const frag = document.createDocumentFragment();
         snap.forEach(docu => {
@@ -925,7 +905,7 @@
       name.textContent = d.name || 'Player';
       const text = document.createElement('span');
       text.className = 'text';
-      text.textContent = d.text; // safe: no HTML injection
+      text.textContent = d.text;
       const time = document.createElement('span');
       time.className = 'time';
       const when = d.createdAt?.toDate?.() || new Date();
@@ -941,7 +921,7 @@
     // Code
     const code = url.searchParams.get("code")?.toUpperCase() || "";
 
-    // Map init (prefer Canvas renderer)
+    // Map init
     function initMap(){
       map = L.map('map', { zoomControl:true, attributionControl:false, preferCanvas:true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
@@ -958,6 +938,7 @@
       }
     });
 
+    // Start geolocation
     startGeoWatch();
 
     // Auth + wire up
@@ -972,7 +953,7 @@
         if (m.exists()){
           const md = m.data() || {};
           roleProvisional = md.role || null;
-          if (roleProvisional === 'seeker') roleProvisional = 'hunter';
+          if (roleProvisional === 'seeker') roleProvisional = 'hunter'; // legacy label
           myName = String(md.name || md.displayName || md.nickname || "Player");
         }
       } catch (e) { console.warn("Cannot read membership; open the lobby first to join.", e); }
@@ -1056,7 +1037,6 @@
             if (autoPingId && autoPingEveryMs !== desiredMs) { clearInterval(autoPingId); autoPingId = null; }
             if (!autoPingId && desiredMs > 0) {
               autoPingEveryMs = desiredMs;
-              // Don’t double-send; initial ping handler already tries immediately
               autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
             }
           } else { if (autoPingId) { clearInterval(autoPingId); autoPingId = null; } }
@@ -1074,19 +1054,7 @@
 
     signInAnonymously(auth).catch(console.error);
 
-    // UI wiring
-    document.getElementById('btnRecenter')?.addEventListener('click', () => {
-      if (lastCoords && map) {
-        map.setView([lastCoords.latitude, lastCoords.longitude], Math.max(map.getZoom(), 16));
-      } else {
-        toast("Waiting for your location…");
-      }
-    });
-
-    // Start geo
-    startGeoWatch();
-
-    // Visibility/pagetear-down: presence cleanup for hunters
+    // Cleanup on tab hide/close
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) cleanupPresence().catch(()=>{});
     });
