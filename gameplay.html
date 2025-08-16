@@ -21,20 +21,6 @@
       --brand:#1e4cff; --accent:#35c18f; --line:#e7ecf3;
       --good:#1f7a48; --bad:#b00020; --focus:#1e4cff33;
     }
-    /* Dark theme via OS or toggle */
-    @media (prefers-color-scheme: dark){
-      :root:not([data-theme="light"]) {
-        --ink:#e7ebf5; --muted:#9fb0cc; --bg:#0b0f1a; --card:#121826;
-        --brand:#8fb1ff; --accent:#44d6a4; --line:#1f2a3d;
-        --good:#3bd282; --bad:#ff6b6b; --focus:#8fb1ff33;
-      }
-    }
-    :root[data-theme="dark"] {
-      --ink:#e7ebf5; --muted:#9fb0cc; --bg:#0b0f1a; --card:#121826;
-      --brand:#8fb1ff; --accent:#44d6a4; --line:#1f2a3d;
-      --good:#3bd282; --bad:#ff6b6b; --focus:#8fb1ff33;
-    }
-
     *{ box-sizing:border-box }
     html, body{ height:100% }
     body{
@@ -48,27 +34,31 @@
     header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
     .brand{ font-weight:900; font-size:28px; letter-spacing:.6px; color:var(--ink) }
     .tag{ display:inline-block; font-size:13px; font-weight:600; color:var(--muted); padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line) }
+
+    /* brighter/larger variant for the role badge */
     .tag.role{
-      font-size:16px; font-weight:800; color:var(--brand); padding:8px 14px;
-      background:linear-gradient(180deg,#fff,#f0f4ff); border-color:#cdd8ff; box-shadow:0 8px 22px rgba(30,76,255,.14);
+      font-size:16px;
+      font-weight:800;
+      color:var(--brand);
+      padding:8px 14px;
+      background:linear-gradient(180deg,#fff,#f0f4ff);
+      border-color:#cdd8ff;
+      box-shadow:0 8px 22px rgba(30,76,255,.14);
     }
 
+    .card{ position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
+    .mapCard{ padding-bottom:88px; }
+    #map{ width:100%; height:min(68vh,560px); border-radius:12px; overflow:hidden }
+
+    .hud{
+      display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:10px; flex-wrap:wrap;
+    }
     .btn{ appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff; background:linear-gradient(135deg,#4facfe,#00f2fe); cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35); }
     .btn.secondary{ background:linear-gradient(135deg,#00f2fe,#4facfe); }
-    .btn.ghost{ background:#fff; color:var(--ink); border:1px solid var(--line); box-shadow:none }
-
     .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:13px; color:#55627a; }
-    .pill.bad{ background:#ffecec; border-color:#ffd0d0; color:#9b1212; font-weight:800; }
     .notice{ margin-top:8px; font-size:12px; color:#55627a }
     .toast{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#0e1220; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px; }
     :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
-
-    .card{ position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
-    .mapCard{ padding-bottom:88px; transition: border-color .2s, box-shadow .2s; }
-    .mapCard.oob{ border-color: var(--bad); box-shadow:0 0 0 2px var(--bad) inset, 0 10px 30px rgba(176,0,32,.12); }
-    #map{ width:100%; height:min(68vh,560px); border-radius:12px; overflow:hidden }
-
-    .hud{ display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
 
     /* Overlays */
     .overlay{ position:fixed; inset:0; background:rgba(14,18,32,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:9999; }
@@ -78,7 +68,6 @@
     .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
     .overlay .actions .btn{ min-width:120px }
 
-    /* Labels for pings/trails */
     .leaflet-tooltip.trailLabel{
       background: rgba(255,255,255,.9);
       border: 1px solid var(--line);
@@ -88,7 +77,6 @@
       color: var(--ink);
       box-shadow: 0 2px 6px rgba(0,0,0,.1);
     }
-    /* Tiny hunter name labels */
     .leaflet-tooltip.seekLabel{
       background: rgba(255,255,255,.92);
       border: 1px solid #dde3ef;
@@ -113,7 +101,6 @@
     .testing-panel .fineprint{ font-size:11px; color:var(--muted); margin-top:6px }
     .testing-panel hr{ border:0; border-top:1px solid var(--line); margin:10px 0 6px 0; }
 
-    /* Recenter FAB */
     .mapFab{ position:absolute; right:16px; bottom:16px; z-index:800; padding:10px 12px; }
 
     /* Chat */
@@ -125,10 +112,9 @@
     .chat-msg .time{ font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
     .chat-form{ display:flex; gap:8px; border-top:1px solid var(--line); padding:8px; }
     .chat-form input{
-      flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-family:inherit; background:#fff;
+      flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-family:inherit;
+      background:#fff;
     }
-
-    /* Mobile: stack chat input and Send button, button below on the left */
     @media (max-width: 640px){
       .chat-form{ flex-direction:column; gap:6px; }
       .chat-form .btn{ align-self:flex-start; }
@@ -172,23 +158,17 @@
         <div class="brand">Seekr.run</div>
         <div class="tag" id="gameTag">Loading game...</div>
       </div>
-      <div class="row" style="gap:8px;">
-        <button id="themeToggle" class="btn ghost" type="button" title="Toggle theme">🌙/☀️</button>
-      </div>
     </header>
 
-    <section class="card mapCard" id="mapCard">
+    <section class="card mapCard">
       <div id="map" aria-label="Live game map"></div>
 
-      <!-- Recenter FAB -->
       <button id="btnRecenter" class="btn secondary mapFab" type="button" aria-label="Recenter on my location" title="Recenter on my location">
         Recenter
       </button>
 
       <div class="hud">
         <span id="timePill" class="pill">Time, syncing…</span>
-        <!-- Out-of-bounds penalty pill (appears once triggered and keeps counting) -->
-        <span id="oobPill" class="pill bad" style="display:none;">Left the zone — 30s</span>
       </div>
       <div id="hint" class="notice"></div>
 
@@ -250,25 +230,9 @@
     const FUGBOT_SPEED_PARAM = Number(url.searchParams.get("fugs") || NaN);
     const FUGBOT_PING_PARAM  = Number(url.searchParams.get("fugp") || NaN);
 
-    // THEME
-    const themeToggle = document.getElementById('themeToggle');
-    const applyTheme = (t) => {
-      if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
-      else document.documentElement.removeAttribute('data-theme');
-    };
-    applyTheme(localStorage.getItem('seekr_theme') || '');
-    themeToggle?.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme') || '';
-      const next = cur === 'dark' ? 'light' : 'dark';
-      applyTheme(next);
-      localStorage.setItem('seekr_theme', next);
-    });
-
     // UI refs
     const gameTag   = document.getElementById('gameTag');
     const timePill  = document.getElementById('timePill');
-    const oobPill   = document.getElementById('oobPill');
-    const mapCard   = document.getElementById('mapCard');
     const hint      = document.getElementById('hint');
     const toastEl   = document.getElementById('toast');
 
@@ -280,11 +244,29 @@
     const chatLog   = document.getElementById('chatLog');
     const chatForm  = document.getElementById('chatForm');
     const chatInput = document.getElementById('chatInput');
-    const chatBtn   = chatForm.querySelector('button');
+
+    // Testing UI
+    const btnTesting = document.getElementById('btnTesting');
+    const testingPanel = document.getElementById('testingPanel');
+    const botCountInput = document.getElementById('botCount');
+    const btnStartBots = document.getElementById('btnStartBots');
+    const btnStopBots = document.getElementById('btnStopBots');
+    const fugSpeedInput = document.getElementById('fugSpeed');
+    const fugPingInput  = document.getElementById('fugPing');
+    const btnStartFug   = document.getElementById('btnStartFug');
+    const btnStopFug    = document.getElementById('btnStopFug');
+
+    if (DEV) {
+      btnTesting.style.display = 'inline-block';
+      btnTesting.addEventListener('click', () => {
+        testingPanel.style.display = testingPanel.style.display === 'none' || testingPanel.style.display === '' ? 'block' : 'none';
+      });
+    }
 
     // Map + game state
     let map, myMarker, extractMarker;
-    let role = null;              // 'fugitive' | 'hunter'
+    let role = null;               // 'fugitive' | 'hunter'
+    let roleProvisional = null;    // lobby hint; final role decided from fugitiveUid
     let myName = "Player";
     let uncertaintyM = 50;
     let tagMeters = 2;
@@ -297,17 +279,10 @@
     let areaRadiusM = 0;
     let zoneFitDone = false;
 
-    // Out-of-bounds penalty
-    const OOB_GRACE_M = 10;       // small GPS jitter guard
-    const OOB_SECONDS = 30;       // penalty window
-    let oobStarted = false;
-    let oobExpireAt = 0;
-    let oobTickId = null;
-
     // Presence / trail
     let lastCoords = null;
     let presenceTimer = null;
-    let huntersNow = [];   // live hunters from Firestore (for fugitive tag detection)
+    let seekersNow = [];   // live hunters from Firestore (name kept for brevity)
     let secretLL = null;
     let gameEnded = false;
 
@@ -316,22 +291,21 @@
     let autoPingEveryMs = 0;
     let didInitialAutoPing = false;
 
-    // Fugitive trail (hunters see)
-    const trailColor = '#ff9500'; // orange
+    // Fugitive trail (for hunters)
+    const trailColor = '#ff9500';
     let trailLayer = null;
     let trailLine = null;
     let trailListenerStarted = false;
     let currentFugitiveUid = null;
 
-    // pursuit target for bots
+    // Pursuit target for bots
     let lastFugPingLL = null;
 
-    // Hunters layer
-    let huntersLayer = null;
-    const huntersMarkers = new Map(); // uid -> L.circleMarker
-    let huntersRenderTimer = null;
-    const HUNTERS_RENDER_MS = 15000;
-    const huntersLive = new Map();   // uid -> {lat,lng,updatedAt}
+    // Hunter-to-hunter layer
+    let seekersLayer = null;
+    const seekersMarkers = new Map(); // uid -> L.circleMarker
+    let seekersRenderTimer = null;
+    const seekersLive = new Map();   // uid -> {lat,lng,updatedAt}
     const memberNames = new Map();   // uid -> display name
 
     // --- Local HUNTER bots (with pursuit) ---
@@ -371,7 +345,7 @@
         bots.push({ id:`bot${i+1}`, name:names[i], lat, lng, headingRad: rand(0, Math.PI*2), speedMps: rand(0.9, 1.7), marker });
       }
       botTimer = setInterval(stepBots, 2000);
-      renderHuntersNowPlus();
+      renderSeekersNowPlus();
     }
     function stepBots(){
       if (!bots.length || !areaCenterLL) return;
@@ -395,28 +369,28 @@
         b.lat = lat; b.lng = lng;
         if (b.marker) b.marker.setLatLng([lat,lng]);
       }
-      renderHuntersNowPlus();
-      if (huntersLayer) { renderHuntersImmediate(); }
+      renderSeekersNowPlus();
+      if (seekersLayer) { renderSeekersImmediate(); }
     }
     function stopBots(){
       if (botTimer){ clearInterval(botTimer); botTimer = null; }
       if (botsLayer){ botsLayer.clearLayers(); }
       bots.length = 0;
-      renderHuntersNowPlus();
-      if (huntersLayer) { renderHuntersImmediate(); }
+      renderSeekersNowPlus();
+      if (seekersLayer) { renderSeekersImmediate(); }
     }
-    function renderHuntersNowPlus(){
+    function renderSeekersNowPlus(){
       if (role !== "fugitive") return;
       const localBots = bots.map(b => ({ lat:b.lat, lng:b.lng }));
-      huntersNowPlus = huntersNow.concat(localBots);
+      seekersNowPlus = seekersNow.concat(localBots);
     }
-    let huntersNowPlus = [];
+    let seekersNowPlus = [];
 
-    // --- Local FUGITIVE bot ---
+    // --- Local FUGITIVE bot (for DEV) ---
     let fugLayer = null;
     let fugMoveTimer = null;
     let fugPingTimer = null;
-    let fug = null;
+    let fug = null; // {lat,lng,headingRad,speedMps, marker, wanderTo}
 
     function ensureTrailLayer(){
       if (!trailLayer) trailLayer = L.layerGroup().addTo(map);
@@ -433,6 +407,7 @@
       const mm = String(when.getMinutes()).padStart(2,'0');
       mk.bindTooltip(`${hh}:${mm}`, { permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"trailLabel" });
     }
+
     function startFugitiveBot(opts = {}){
       if (!DEV) return;
       if (!areaCenterLL || !areaRadiusM){ toast("Fugitive bot needs the zone loaded first."); return; }
@@ -518,35 +493,6 @@
       fug = null;
     }
 
-    // Testing UI refs
-    const btnTesting = document.getElementById('btnTesting');
-    const testingPanel = document.getElementById('testingPanel');
-    const botCountInput = document.getElementById('botCount');
-    const btnStartBots = document.getElementById('btnStartBots');
-    const btnStopBots = document.getElementById('btnStopBots');
-    const fugSpeedInput = document.getElementById('fugSpeed');
-    const fugPingInput  = document.getElementById('fugPing');
-    const btnStartFug   = document.getElementById('btnStartFug');
-    const btnStopFug    = document.getElementById('btnStopFug');
-
-    if (DEV) {
-      btnTesting.style.display = 'inline-block';
-      btnTesting.addEventListener('click', () => {
-        testingPanel.style.display = testingPanel.style.display === 'none' || testingPanel.style.display === '' ? 'block' : 'none';
-      });
-    }
-
-    // Code
-    const code = url.searchParams.get("code")?.toUpperCase() || "";
-
-    // Map init
-    function initMap(){
-      map = L.map('map', { zoomControl:true, attributionControl:false, preferCanvas:true });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      map.setView([51.505, -0.09], 15);
-    }
-    initMap();
-
     // Recenter FAB
     document.getElementById('btnRecenter')?.addEventListener('click', () => {
       if (lastCoords && map) {
@@ -555,6 +501,14 @@
         toast("Waiting for your location…");
       }
     });
+
+    // Map init
+    function initMap(){
+      map = L.map('map', { zoomControl:true, attributionControl:false, preferCanvas:true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      map.setView([51.505, -0.09], 15);
+    }
+    initMap();
 
     startGeoWatch();
 
@@ -578,15 +532,9 @@
     function showEndOverlay(winner, reason){
       endTitle.textContent = winner === "fugitive" ? "Fugitive Wins!" :
                              winner === "hunter"   ? "Hunters Win!"  : "Round Ended";
-      // reason mapping
-      const msg =
-        winner === "fugitive" && reason === "oob"   ? "A hunter left the zone." :
-        winner === "hunter"   && reason === "oob"   ? "The fugitive left the zone." :
-        winner === "fugitive" && reason === "extract" ? "The fugitive reached extraction." :
-        winner === "hunter"   && reason === "tag"     ? "A hunter tagged the fugitive." :
-        winner === "fugitive" ? "The fugitive escaped." :
-        winner === "hunter"   ? "Hunters prevailed." : "Game over.";
-      endMsg.textContent = msg;
+      endMsg.textContent = winner === "fugitive"
+        ? (reason === "extract" ? "The fugitive reached extraction." : "The fugitives escaped.")
+        : (winner === "hunter" ? "A hunter tagged the fugitive." : "Game over.");
       endOverlay.style.display = 'flex';
       endOverlay.setAttribute('aria-hidden', 'false');
     }
@@ -618,15 +566,14 @@
           role, uid, reason,
           createdAt: serverTimestamp()
         });
-        // Show my own breadcrumb if I'm the fugitive
+        // IMPORTANT: do NOT draw yellow pins for the fugitive locally (hunters-only display)
         if (role === "fugitive"){
-          addLocalFugitivePing(lastCoords.latitude, lastCoords.longitude, new Date());
           lastFugPingLL = L.latLng(lastCoords.latitude, lastCoords.longitude);
         }
       }catch(e){ console.warn("saveCurrentPing failed", e); }
     }
 
-    // Location + OOB penalty
+    // Location
     function startGeoWatch(){
       if (geoWatchId) return;
 
@@ -645,41 +592,7 @@
           lastCoords = pos.coords;
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
           maybeCheckExtractionWin(pos.coords);
-          maybeCheckTaggedByHunter(pos.coords);
-
-          // Zone/outside detection
-          if (areaCenterLL && areaRadiusM) {
-            const dFromCenter = map.distance([pos.coords.latitude, pos.coords.longitude], areaCenterLL);
-            const outside = dFromCenter > (areaRadiusM + OOB_GRACE_M);
-            mapCard.classList.toggle('oob', outside);
-
-            // Start penalty exactly once on first outside
-            if (outside && !oobStarted) {
-              oobStarted = true;
-              oobExpireAt = Date.now() + OOB_SECONDS * 1000;
-              oobPill.style.display = 'inline-block';
-              toast("Outside the zone — 30s penalty started");
-              // start ticker
-              const tick = () => {
-                if (gameEnded) return clearInterval(oobTickId);
-                const left = Math.max(0, oobExpireAt - Date.now());
-                const s = Math.ceil(left / 1000);
-                oobPill.textContent = outside ? `Outside the zone — ${s}s` : `Left the zone — ${s}s`;
-                if (left <= 0) {
-                  clearInterval(oobTickId);
-                  const winner = (role === 'fugitive') ? 'hunter' : 'fugitive';
-                  endGame(winner, 'oob');
-                }
-              };
-              tick();
-              oobTickId = setInterval(tick, 250);
-            } else if (oobStarted) {
-              // keep pill visible & counting even if back inside
-              const left = Math.max(0, oobExpireAt - Date.now());
-              const s = Math.ceil(left / 1000);
-              oobPill.textContent = outside ? `Outside the zone — ${s}s` : `Left the zone — ${s}s`;
-            }
-          }
+          maybeCheckTaggedBySeeker(pos.coords);
         },
         err => {
           console.warn('watchPosition error', err);
@@ -699,7 +612,7 @@
         if (uid && role === "hunter") {
           await setDoc(
             doc(db, "games", code, "presence", uid),
-            { role: "hunter", offline: true, lat: null, lng: null, updatedAt: serverTimestamp() },
+            { role, offline: true, lat: null, lng: null, updatedAt: serverTimestamp() },
             { merge: true }
           );
         }
@@ -710,11 +623,10 @@
       if (tickId) { clearInterval(tickId); tickId = null; }
       if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
       if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
-      if (huntersRenderTimer) { clearInterval(huntersRenderTimer); huntersRenderTimer = null; }
+      if (seekersRenderTimer) { clearInterval(seekersRenderTimer); seekersRenderTimer = null; }
       if (botTimer) { clearInterval(botTimer); botTimer = null; }
       if (fugMoveTimer) { clearInterval(fugMoveTimer); fugMoveTimer = null; }
       if (fugPingTimer) { clearInterval(fugPingTimer); fugPingTimer = null; }
-      if (oobTickId) { clearInterval(oobTickId); oobTickId = null; }
       if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
       unsubs.splice(0).forEach(u => { try{ u(); }catch{} });
     }
@@ -728,13 +640,13 @@
       }
     }
 
-    function maybeCheckTaggedByHunter(coords){
+    function maybeCheckTaggedBySeeker(coords){
       if (role !== "fugitive" || gameEnded) return;
       const me = L.latLng(coords.latitude, coords.longitude);
-      const pool = DEV ? huntersNowPlus : huntersNow;
-      for (const h of pool){
-        if (typeof h.lat !== "number" || typeof h.lng !== "number") continue;
-        const d = map.distance(me, [h.lat, h.lng]);
+      const pool = DEV ? seekersNowPlus : seekersNow;
+      for (const s of pool){
+        if (typeof s.lat !== "number" || typeof s.lng !== "number") continue;
+        const d = map.distance(me, [s.lat, s.lng]);
         if (d <= tagMeters){
           toast("A hunter tagged you");
           endGame("hunter", "tag");
@@ -743,8 +655,8 @@
       }
     }
 
-    // Hunters see the fugitive trail
-    function startHunterTrail(){
+    // Hunters see fugitive trail
+    function startSeekerTrail(){
       if (trailLayer) return;
       ensureTrailLayer();
       const qTrail = query(collection(db, "games", code, "pings"), where("role", "==", "fugitive"), orderBy("createdAt", "asc"));
@@ -754,8 +666,11 @@
           const p = ch.doc.data();
           if (currentFugitiveUid && p.uid !== currentFugitiveUid) return;
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
-          addLocalFugitivePing(p.lat, p.lng, p.createdAt?.toDate?.() || new Date());
-          lastFugPingLL = L.latLng(p.lat, p.lng);
+          // Only hunters draw the trail
+          if (role === "hunter") {
+            addLocalFugitivePing(p.lat, p.lng, p.createdAt?.toDate?.() || new Date());
+            lastFugPingLL = L.latLng(p.lat, p.lng);
+          }
         });
       }, err => console.error("trail listener error", err));
       unsubs.push(u);
@@ -784,7 +699,7 @@
       const publish = async () => {
         if (!lastCoords || gameEnded) return;
         try{
-          await setDoc(presRef, { role: "hunter", lat: lastCoords.latitude, lng: lastCoords.longitude, updatedAt: serverTimestamp() }, { merge:true });
+          await setDoc(presRef, { role, lat: lastCoords.latitude, lng: lastCoords.longitude, updatedAt: serverTimestamp() }, { merge:true });
         }catch(e){ console.warn("presence write failed", e); }
       };
       publish();
@@ -792,19 +707,20 @@
     }
 
     // Fugitives read hunters for tag detection
-    function startReadingHuntersForFugitive(){
-      const qHunters = query(collection(db, "games", code, "presence"), where("role", "in", ["hunter","seeker"]));
-      const u = onSnapshot(qHunters, snap => {
-        huntersNow = snap.docs.map(d => d.data()).filter(d => typeof d.lat === "number" && typeof d.lng === "number");
-        renderHuntersNowPlus();
+    function startReadingSeekersForFugitive(){
+      const qSeekers = query(collection(db, "games", code, "presence"), where("role", "in", ["hunter","seeker"]));
+      const u = onSnapshot(qSeekers, snap => {
+        seekersNow = snap.docs.map(d => d.data()).filter(d => typeof d.lat === "number" && typeof d.lng === "number");
+        renderSeekersNowPlus();
       }, err => console.error("presence read error", err));
       unsubs.push(u);
     }
 
     // Hunters see other hunters
-    function startHuntersVisualizer(){
-      if (huntersLayer) return;
-      huntersLayer = L.layerGroup().addTo(map);
+    function startSeekersVisualizer(){
+      if (seekersLayer) return;
+      seekersLayer = L.layerGroup().addTo(map);
+      const myId = auth.currentUser?.uid;
 
       const u1 = onSnapshot(collection(db, "games", code, "members"), snap => {
         snap.forEach(docu => {
@@ -815,37 +731,37 @@
       });
       unsubs.push(u1);
 
-      const qHunters = query(collection(db, "games", code, "presence"), where("role", "in", ["hunter","seeker"]));
-      const u2 = onSnapshot(qHunters, snap => {
-        huntersLive.clear();
+      const qSeekers = query(collection(db, "games", code, "presence"), where("role", "in", ["hunter","seeker"]));
+      const u2 = onSnapshot(qSeekers, snap => {
+        seekersLive.clear();
         snap.forEach(docu => {
           const d = docu.data() || {};
           if (typeof d.lat === "number" && typeof d.lng === "number") {
-            huntersLive.set(docu.id, { lat:d.lat, lng:d.lng, updatedAt:d.updatedAt });
+            seekersLive.set(docu.id, { lat:d.lat, lng:d.lng, updatedAt:d.updatedAt });
           }
         });
-        renderHuntersImmediate();
+        renderSeekersImmediate();
       });
       unsubs.push(u2);
 
-      if (!huntersRenderTimer) huntersRenderTimer = setInterval(renderHuntersImmediate, HUNTERS_RENDER_MS);
+      if (!seekersRenderTimer) seekersRenderTimer = setInterval(renderSeekersImmediate, 15000);
     }
-    function renderHuntersImmediate(){
-      if (!huntersLayer) return;
-      huntersLayer.clearLayers();
-      huntersMarkers.clear();
+    function renderSeekersImmediate(){
+      if (!seekersLayer) return;
+      seekersLayer.clearLayers();
+      seekersMarkers.clear();
       const myId = auth.currentUser?.uid;
-      huntersLive.forEach((val, uid) => {
+      seekersLive.forEach((val, uid) => {
         if (uid === myId) return;
-        const mk = L.circleMarker([val.lat,val.lng], { radius:5, weight:2, color:'#000', fillColor:'#000', fillOpacity:0.9 }).addTo(huntersLayer);
+        const mk = L.circleMarker([val.lat,val.lng], { radius:5, weight:2, color:'#000', fillColor:'#000', fillOpacity:0.9 }).addTo(seekersLayer);
         const name = memberNames.get(uid) || 'Hunter';
         mk.bindTooltip(name, { permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"seekLabel" });
-        huntersMarkers.set(uid, mk);
+        seekersMarkers.set(uid, mk);
       });
       if (DEV && bots.length){
         for (const b of bots){
           L.circleMarker([b.lat,b.lng], { radius:5, weight:2, color:'#000', fillColor:'#000', fillOpacity:0.9 })
-            .addTo(huntersLayer).bindTooltip(b.name, { permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"seekLabel" });
+            .addTo(seekersLayer).bindTooltip(b.name, { permanent:true, direction:"top", offset:[0,-8], opacity:0.95, className:"seekLabel" });
         }
       }
     }
@@ -862,13 +778,20 @@
       }
       return 0;
     }
+
     function formatLeft(leftMs, useHMS){
       const totalSec = Math.max(0, Math.floor(leftMs / 1000));
       const s = totalSec % 60;
       const m = Math.floor(totalSec / 60) % 60;
       const h = Math.floor(totalSec / 3600);
-      return useHMS ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${Math.floor(totalSec/60)}:${String(s).padStart(2,"0")}`;
+      if (useHMS) {
+        return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      } else {
+        const mm = Math.floor(totalSec / 60);
+        return `${mm}:${String(s).padStart(2,"0")}`;
+      }
     }
+
     function computeTimes(g){
       const rulesMinutes = Number(g?.rules?.game_minutes || 0);
       const durationMs   = Number(g?.durationMs || (rulesMinutes > 0 ? rulesMinutes * 60000 : 0));
@@ -930,7 +853,6 @@
 
       chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (chatInput.disabled) return;
         const txt = (chatInput.value || '').trim();
         if (!txt) return;
         chatInput.value = '';
@@ -957,41 +879,33 @@
       const hh = String(when.getHours()).padStart(2,'0');
       const mm = String(when.getMinutes()).padStart(2,'0');
       time.textContent = `${hh}:${mm}`;
-      row.appendChild(name); row.appendChild(text); row.appendChild(time);
+      row.appendChild(name);
+      row.appendChild(text);
+      row.appendChild(time);
       return row;
     }
+
+    // Code
+    const code = url.searchParams.get("code")?.toUpperCase() || "";
 
     // Auth + wire up
     onAuthStateChanged(auth, async user => {
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
 
-      // Read my membership to infer role (created via lobby)
+      // Read my membership (provisional role + name)
       const memberRef = doc(db, "games", code, "members", user.uid);
-      let storedRole = null;
       try {
         const m = await getDoc(memberRef);
         if (m.exists()){
           const md = m.data() || {};
-          storedRole = md.role || null;
+          roleProvisional = md.role || null; // may be 'fugitive' or 'hunter' (or 'seeker' legacy)
+          if (roleProvisional === 'seeker') roleProvisional = 'hunter';
           myName = String(md.name || md.displayName || md.nickname || "Player");
         }
       } catch (e) { console.warn("Cannot read membership; open the lobby first to join.", e); }
-      // Map legacy 'seeker' to 'hunter'
-      if (storedRole === 'fugitive') role = 'fugitive';
-      else if (storedRole === 'hunter' || storedRole === 'seeker') role = 'hunter';
-      else { location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
-      const roleLabel = role === "hunter" ? "a Hunter" : "a Fugitive";
-      gameTag.textContent = "Game " + code + " • You are " + roleLabel;
-      gameTag.classList.add("role");
-
-      if (DEV) { btnTesting.style.display = 'inline-block'; testingPanel.style.display = 'block'; }
-
-      if (role === "hunter") { startPresencePublisher(); startHuntersVisualizer(); }
-      if (role === "fugitive") { startReadingHuntersForFugitive(); }
-
-      // Start chat after we know who we are
+      // Start chat early (role may be updated later; it's included on send)
       startChat();
 
       const gameRef = doc(db, "games", code);
@@ -1002,31 +916,44 @@
         if (srv.exists()) { startCountdown(computeTimes(srv.data())); }
       } catch (e) { console.warn("Server prime failed:", e); }
 
-      // Live updates
+      // Live updates (+ final role resolution)
       const uGame = onSnapshot(
         gameRef,
         snap => {
           if (!snap.exists()) { hint.textContent = "Game not found"; stopAllRealtime(); return; }
           const g = snap.data();
 
-          // Disable chat when ended
-          const ended = g.status === "ended";
-          chatInput.disabled = !!ended;
-          chatBtn.disabled = !!ended;
-          if (ended){ chatInput.placeholder = "Game has ended"; }
-
           if (g.status === "lobby") { toast("Waiting in lobby…"); location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
-          // Fugitive changes reset trail
-          const nextFug = g.fugitiveUid || null;
-          const fugChanged = nextFug !== currentFugitiveUid;
-          currentFugitiveUid = nextFug;
-          if (role === "hunter" && !trailListenerStarted) { startHunterTrail(); trailListenerStarted = true; }
-          if (role === "hunter" && fugChanged && trailLayer && trailLine) {
-            trailLayer.clearLayers(); trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
+          // --- Resolve role with priority to fugitiveUid ---
+          const uid = auth.currentUser?.uid;
+          let nextRole = roleProvisional || null;
+          if (g.fugitiveUid) {
+            nextRole = (g.fugitiveUid === uid) ? 'fugitive' : 'hunter';
+          }
+          if (nextRole === 'seeker') nextRole = 'hunter'; // legacy safety
+
+          // Apply role changes once
+          if (role !== nextRole) {
+            role = nextRole;
+            const roleLabel = role === "hunter" ? "a Hunter" : (role === "fugitive" ? "a Fugitive" : role);
+            gameTag.textContent = "Game " + code + " • You are " + roleLabel;
+            gameTag.classList.add("role");
+
+            // Start role-specific features
+            if (role === "hunter") { startPresencePublisher(); startSeekersVisualizer(); if (!trailListenerStarted){ startSeekerTrail(); trailListenerStarted = true; } }
+            if (role === "fugitive") { startReadingSeekersForFugitive(); }
           }
 
           if (g.status === "ended"){ gameEnded = true; stopAllRealtime(); timePill.textContent = "Time, round ended"; showEndOverlay(g.winner || "unknown", g.endReason || ""); return; }
+
+          // Track current fugitive to reset trail if they change
+          const nextFug = g.fugitiveUid || null;
+          const fugChanged = nextFug !== currentFugitiveUid;
+          currentFugitiveUid = nextFug;
+          if (role === "hunter" && fugChanged && trailLayer && trailLine) {
+            trailLayer.clearLayers(); trailLine = L.polyline([], { color:trailColor, weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
+          }
 
           // Zone
           const z = g.zone || null;
@@ -1040,7 +967,7 @@
               if (!zoneFitDone && !myMarker) { map.fitBounds(areaCircle.getBounds()); zoneFitDone = true; }
             } else { areaCircle.setLatLng(areaCenterLL); areaCircle.setRadius(areaRadiusM); }
 
-            // auto-start bots from URL when zone known
+            // DEV auto-start bots
             if (DEV && BOTS_PARAM > 0 && bots.length === 0) { botCountInput.value = String(BOTS_PARAM); spawnBots(BOTS_PARAM); toast(`Auto-started ${BOTS_PARAM} bot${BOTS_PARAM>1?'s':''}.`); }
             if (DEV && FUGBOT_PARAM && !fug) {
               if (Number.isFinite(FUGBOT_SPEED_PARAM)) fugSpeedInput.value = String(FUGBOT_SPEED_PARAM);
@@ -1069,6 +996,7 @@
 
           // Times & countdown
           const { startMs, endMs, revealAtMs } = computeTimes(g);
+          // Initial ping at round start so hunters see a breadcrumb quickly
           if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) { saveCurrentPing("round-start").catch(()=>{}); didInitialAutoPing = true; }
           if (role === "fugitive" && revealAtMs && Date.now() >= revealAtMs && !extractMarker) { startSecretListener(); }
           startCountdown({ startMs, endMs, revealAtMs });
@@ -1080,7 +1008,7 @@
 
     signInAnonymously(auth).catch(console.error);
 
-    // Visibility/page tear-down: presence cleanup for hunters
+    // Visibility/pagetear-down: presence cleanup for hunters
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) cleanupPresence().catch(()=>{});
     });
