@@ -20,7 +20,6 @@
     :root{
       --ink:#0e1220; --muted:#55627a; --bg:#f6f8fc; --card:#ffffff;
       --brand:#1e4cff; --accent:#35c18f; --line:#e7ecf3;
-      --good:#1f7a48; --bad:#b00020; --focus:#1e4cff33;
     }
     *{ box-sizing:border-box }
     html, body{ height:100% }
@@ -50,7 +49,7 @@
     }
     .btn.secondary{ background:linear-gradient(135deg,#8e9eab,#eef2f3); color:#0e1220; box-shadow:none }
     .btn.ghost{ background:#fff; color:#0e1220; border:1px solid var(--line); box-shadow:none }
-    .btn:focus-visible{ outline:3px solid var(--focus); outline-offset:2px }
+    .btn:focus-visible{ outline:3px solid #1e4cff33; outline-offset:2px }
 
     /* How it works strip */
     .hiw{
@@ -131,13 +130,8 @@
       box-shadow:0 6px 18px rgba(0,0,0,.2); display:none; z-index:99999; font-size:14px;
     }
 
-    /* Reduced motion */
-    @media (prefers-reduced-motion: reduce){
-      .btn{ transition:none }
-    }
-
-    /* Focus ring helper */
-    :focus-visible{ outline:3px solid var(--focus); outline-offset:2px; border-radius:8px }
+    @media (prefers-reduced-motion: reduce){ .btn{ transition:none } }
+    :focus-visible{ outline:3px solid #1e4cff33; outline-offset:2px; border-radius:8px }
   </style>
 </head>
 <body>
@@ -192,8 +186,6 @@
       <section class="card">
         <h2>Rules</h2>
 
-        <!-- Presets removed -->
-
         <div class="two">
           <div class="stack">
             <label for="gameLen">Game length, minutes</label>
@@ -217,7 +209,26 @@
           </div>
         </div>
 
-        <!-- Actions section removed -->
+        <!-- NEW: Extraction radius + endgame boost -->
+        <div class="two" style="margin-top:10px;">
+          <div class="stack">
+            <label for="extractRadius">Extraction radius, meters</label>
+            <input id="extractRadius" type="number" min="5" max="200" step="1" value="30" />
+          </div>
+          <div class="stack">
+            <label for="extractFinalRadius">Final minutes radius, meters</label>
+            <input id="extractFinalRadius" type="number" min="5" max="300" step="1" value="50" />
+          </div>
+        </div>
+        <div class="two" style="margin-top:10px;">
+          <div class="stack">
+            <label for="extractBoostMin">Boost kicks in when <strong>minutes remain</strong></label>
+            <input id="extractBoostMin" type="number" min="0" max="60" step="1" value="2" />
+          </div>
+          <div class="stack">
+            <div class="fineprint">Set boost minutes to 0 to disable the endgame radius boost.</div>
+          </div>
+        </div>
 
         <div class="stack" style="margin-top:14px;">
           <div class="codeBox">
@@ -230,7 +241,6 @@
             </button>
           </div>
 
-          <!-- Single CTA -->
           <button id="btnGoLobby" class="btn" type="button">Go to Lobby</button>
           <div id="status" class="footnote" aria-live="polite"></div>
 
@@ -262,7 +272,6 @@
 
   <!-- MAP + DEMO LOGIC (non-module) -->
   <script>
-    // Map setup (no manual extraction UI)
     let map, centerMarker, areaCircle, uncertaintyCircle;
 
     const centerReadout    = document.getElementById('centerReadout');
@@ -323,7 +332,6 @@
       if (centerMarker) drawUncertainty(centerMarker.getLatLng(), clamp(Number(uncertaintyInput.value), 10, 200, 50));
     });
 
-    // Try geolocation for centering
     if ((location.protocol === 'https:' || ['localhost','127.0.0.1','::1'].includes(location.hostname)) && 'geolocation' in navigator){
       navigator.geolocation.getCurrentPosition(
         pos => initMap(pos.coords.latitude, pos.coords.longitude),
@@ -365,12 +373,15 @@
     const statusEl     = document.getElementById('status');
 
     // Rule inputs
-    const radiusKm     = document.getElementById('radiusKm');
-    const uncertaintyM = document.getElementById('uncertaintyM');
-    const gameLen      = document.getElementById('gameLen');
-    const tagDist      = document.getElementById('tagDist');
-    const pingMins     = document.getElementById('pingMins');
-    const revealRemain = document.getElementById('revealRemain');
+    const radiusKm       = document.getElementById('radiusKm');
+    const uncertaintyM   = document.getElementById('uncertaintyM');
+    const gameLen        = document.getElementById('gameLen');
+    const tagDist        = document.getElementById('tagDist');
+    const pingMins       = document.getElementById('pingMins');
+    const revealRemain   = document.getElementById('revealRemain');
+    const extractRadius  = document.getElementById('extractRadius');
+    const extractFinal   = document.getElementById('extractFinalRadius');
+    const extractBoost   = document.getElementById('extractBoostMin');
 
     // Reveal timing: default 50% of game length (rounded), until user edits
     let revealDirty = false;
@@ -385,6 +396,8 @@
       const gl = clampNum(Number(gameLen.value), 5, 1440, 30);
       gameLen.value = gl;
       if (!revealDirty) autoSetRevealIfNotDirty(); else revealRemain.max = String(Math.max(1, gl - 1));
+      // keep boost minutes within game length
+      extractBoost.value = clampNum(Number(extractBoost.value), 0, gl - 1, 2);
     });
     revealRemain.addEventListener('input', () => {
       const gl = clampNum(Number(gameLen.value), 5, 1440, 30);
@@ -392,6 +405,23 @@
       revealRemain.value = rr;
       revealDirty = true;
     });
+
+    // Extraction: keep final >= base, and minutes within range (0 disables boost)
+    extractRadius.addEventListener('input', () => {
+      const base = clampNum(Number(extractRadius.value), 5, 200, 30);
+      extractRadius.value = base;
+      if (Number(extractFinal.value) < base) extractFinal.value = base;
+    });
+    extractFinal.addEventListener('input', () => {
+      const base = clampNum(Number(extractRadius.value), 5, 200, 30);
+      const fin  = clampNum(Number(extractFinal.value), 5, 300, Math.max(50, base));
+      extractFinal.value = Math.max(fin, base);
+    });
+    extractBoost.addEventListener('input', () => {
+      const gl = clampNum(Number(gameLen.value), 5, 1440, 30);
+      extractBoost.value = clampNum(Number(extractBoost.value), 0, gl - 1, 2);
+    });
+
     autoSetRevealIfNotDirty();
 
     function clampNum(n, min, max, fallback){
@@ -453,12 +483,23 @@
         center: { lat: center.lat, lng: center.lng },
         radius_km: Number(radiusKm.value)
       };
+
+      // Ensure extraction final radius ≥ base
+      const xr = clampNum(Number(extractRadius.value), 5, 200, 30);
+      const xf = Math.max(xr, clampNum(Number(extractFinal.value), 5, 300, 50));
+      const xb = clampNum(Number(extractBoost.value), 0, Math.max(0, Number(gameLen.value) - 1), 2);
+
       const rules = {
         game_minutes: Number(gameLen.value),
         tag_meters:   Number(tagDist.value),
         ping_minutes: Number(pingMins.value),
         uncertainty_m:Number(uncertaintyM.value),
-        reveal_minutes_remaining: Number(revealRemain.value)
+        reveal_minutes_remaining: Number(revealRemain.value),
+
+        // NEW: extraction tuning
+        extraction_radius_m: xr,
+        extraction_final_radius_m: xf,
+        extraction_boost_minutes: xb
       };
       const lobbyConfig = { uncertaintyM: rules.uncertainty_m };
 
@@ -501,7 +542,7 @@
             rules,
             lobbyConfig,
             updatedAt: serverTimestamp(),
-            // clear stale live state (so lobby never thinks it’s live)
+            // clear stale live state
             startsAt: deleteField(),
             endsAt:   deleteField(),
             revealAt: deleteField(),
@@ -574,7 +615,7 @@
       el._t = setTimeout(() => el.style.display = 'none', 2200);
     }
 
-    // Read URL params to prefill
+    // Read URL params to prefill (optional)
     window.addEventListener('DOMContentLoaded', () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get('code');
@@ -583,13 +624,25 @@
       const g = parseFloat(url.searchParams.get('g'));
       const p = parseFloat(url.searchParams.get('p'));
       const t = parseFloat(url.searchParams.get('t'));
+      const xr = parseFloat(url.searchParams.get('xr')); // extraction radius
+      const xf = parseFloat(url.searchParams.get('xf')); // final radius
+      const xb = parseFloat(url.searchParams.get('xb')); // boost minutes
+
       if(code){ codeEl.textContent = code; }
       if(Number.isFinite(r)){ radiusKm.value = clampNum(r, 0.2, 200, 0.6); radiusKm.dispatchEvent(new Event('input')); }
       if(Number.isFinite(u)){ uncertaintyM.value = clampNum(u, 10, 200, 50); uncertaintyM.dispatchEvent(new Event('input')); }
       if(Number.isFinite(g)){ gameLen.value = clampNum(g, 5, 1440, 30); autoSetRevealIfNotDirty(); }
       if(Number.isFinite(p)){ pingMins.value = clampNum(p, 1, 15, 5); }
       if(Number.isFinite(t)){ tagDist.value = clampNum(t, 2, 50, 8); }
-      autoSetRevealIfNotDirty(); // ensure bounds reflect current game length
+      if(Number.isFinite(xr)){ extractRadius.value = clampNum(xr, 5, 200, 30); }
+      if(Number.isFinite(xf)){ extractFinal.value  = clampNum(xf, 5, 300, Math.max(50, Number(extractRadius.value)||30)); }
+      if(Number.isFinite(xb)){ extractBoost.value  = clampNum(xb, 0, Math.max(0, Number(gameLen.value)-1), 2); }
+
+      // enforce final >= base
+      if (Number(extractFinal.value) < Number(extractRadius.value)) {
+        extractFinal.value = extractRadius.value;
+      }
+      autoSetRevealIfNotDirty();
     });
   </script>
 
