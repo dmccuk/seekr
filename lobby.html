@@ -28,20 +28,22 @@
     header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
     .brand{ font-weight:900; font-size:28px; letter-spacing:.6px; color:var(--ink) }
     .tag{ display:inline-block; font-size:13px; font-weight:600; color:var(--muted); padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line) }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+
     .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
     .grid{ display:grid; gap:12px; grid-template-columns: 1fr; }
     @media (min-width:860px){ .grid{ grid-template-columns: 1fr 1fr; } }
 
     .sectionTitle{ margin:0 0 8px 0; font-weight:800; font-size:16px }
     .muted{ color:var(--muted) }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .btn{ appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff; cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35); background:linear-gradient(135deg,#4facfe,#00f2fe); }
     .btn.secondary{ background:linear-gradient(135deg,#00f2fe,#4facfe); }
     .btn.ghost{ background:#eef2fa; color:#364d9b; box-shadow:none; border:1px solid var(--line) }
     .btn.danger{ background:linear-gradient(135deg,#ff6a6a,#ff3b3b) }
     .btn.sm{ padding:6px 10px; font-size:12px; border-radius:10px }
-    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a; }
+    .btn[disabled]{ opacity:.6; cursor:not-allowed }
 
+    .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#55627a; }
     .list{ display:flex; flex-direction:column; gap:8px; margin-top:8px }
     .member{
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -70,6 +72,19 @@
     .dangerNote{ font-size:12px; color:#b00020 }
     .okNote{ font-size:12px; color:#1f7a48 }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    /* Consent overlay */
+    .overlay{
+      position:fixed; inset:0; background:rgba(14,18,32,.6);
+      display:none; align-items:center; justify-content:center; padding:16px; z-index:9999;
+    }
+    .overlay .sheet{
+      background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; max-width:520px; width:min(92vw,520px);
+      box-shadow:0 20px 50px rgba(0,0,0,.25);
+    }
+    .overlay h3{ margin:0 0 8px 0; font-size:18px; font-weight:800 }
+    .overlay p{ margin:0 0 10px 0; color:var(--muted) }
+    .overlay .actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
   </style>
 </head>
 <body>
@@ -79,7 +94,10 @@
         <div class="brand">Seekr.run</div>
         <div class="tag" id="gameTag">Lobby • Loading…</div>
       </div>
-      <a href="index.html" class="btn secondary">Home</a>
+      <div class="row" style="gap:8px;">
+        <button id="leaveBtn" class="btn ghost" type="button" title="Leave this game">Leave game</button>
+        <a href="index.html" class="btn secondary">Home</a>
+      </div>
     </header>
 
     <div class="grid">
@@ -98,12 +116,13 @@
         </div>
 
         <h3 class="sectionTitle" style="margin-top:16px;">Round settings</h3>
-        <div class="info" id="settingsInfo">Host can tweak duration & intervals on the setup page (demo.html). Lobby reads settings from the game.</div>
+        <div class="info" id="settingsInfo">Host sets these on the setup page. Lobby reads them from the game.</div>
         <ul class="info" style="margin:6px 0 0 16px;">
           <li>Duration: <span id="infoMinutes">—</span> min</li>
           <li>Fugitive ping every: <span id="infoPingMinutes">—</span> min</li>
           <li>Tag distance: <span id="infoTagM">—</span> m</li>
           <li>Uncertainty: <span id="infoUncM">—</span> m</li>
+          <li>Reveal when: <span id="infoRevealRemain">—</span> min left</li>
         </ul>
 
         <div id="hostControls" style="margin-top:16px; display:none;">
@@ -143,13 +162,34 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <!-- Consent overlay -->
+  <div id="consent" class="overlay" role="dialog" aria-modal="true" aria-labelledby="consentTitle" aria-hidden="true" style="display:none;">
+    <div class="sheet">
+      <h3 id="consentTitle">Before you join</h3>
+      <p>To play, you must be <strong>16+</strong> and agree to the Terms & Privacy.</p>
+      <label style="display:flex; gap:.6rem; align-items:flex-start; margin-top:6px;">
+        <input id="consentBox" type="checkbox" />
+        <span>
+          I am <strong>16+</strong> and I agree to the
+          <a href="terms.html" target="_blank" rel="noopener">Terms</a> and
+          <a href="privacy.html" target="_blank" rel="noopener">Privacy Notice</a>. I allow precise location during the round. GPS & chat are deleted within <strong>48h</strong>.
+        </span>
+      </label>
+      <div class="actions">
+        <button id="consentLeave" class="btn ghost" type="button">Leave</button>
+        <button id="consentAgree" class="btn" type="button" disabled>Agree & join</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     // Firebase CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import {
       getFirestore, doc, setDoc, getDoc, onSnapshot,
-      collection, query, orderBy, serverTimestamp, runTransaction, deleteField
+      collection, query, orderBy, serverTimestamp, runTransaction,
+      deleteField, deleteDoc
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -174,6 +214,7 @@
     const infoPingMinutes = document.getElementById('infoPingMinutes');
     const infoTagM = document.getElementById('infoTagM');
     const infoUncM = document.getElementById('infoUncM');
+    const infoRevealRemain = document.getElementById('infoRevealRemain');
     const hostControls = document.getElementById('hostControls');
     const hostLine = document.getElementById('hostLine');
     const startBtn = document.getElementById('startBtn');
@@ -185,9 +226,17 @@
     const openGameplayBtn = document.getElementById('openGameplay');
     const liveNote = document.getElementById('liveNote');
     const fugitiveSlotEl = document.getElementById('fugitiveSlot');
+    const leaveBtn = document.getElementById('leaveBtn');
+
+    // Consent overlay refs
+    const consentEl = document.getElementById('consent');
+    const consentBox = document.getElementById('consentBox');
+    const consentAgree = document.getElementById('consentAgree');
+    const consentLeave = document.getElementById('consentLeave');
 
     // State
-    const code = new URL(location.href).searchParams.get("code")?.toUpperCase() || "";
+    const url = new URL(location.href);
+    const code = url.searchParams.get("code")?.toUpperCase() || "";
     if (!code) {
       alert("Missing game code. Open with ?code=ABC123");
       location.href = "index.html";
@@ -198,6 +247,7 @@
     let me = { uid:null, isHost:false, displayName:null };
     let game = null;
     let roster = []; // [{uid, role, displayName}...]
+    let hasConsent = false;
 
     const isLobby = () => (game && game.status === "lobby");
 
@@ -206,6 +256,13 @@
       toastEl.style.display = 'block';
       clearTimeout(toastEl._t);
       toastEl._t = setTimeout(() => toastEl.style.display = 'none', 2000);
+    }
+
+    function setLobbyControlsEnabled(on){
+      // gate critical actions behind consent
+      startBtn.disabled = !on || startBtn.disabled; // keep existing gating if already disabled
+      openGameplayBtn.disabled = !on;
+      openAsHostBtn.disabled = !on;
     }
 
     // Simple codename generator
@@ -217,7 +274,6 @@
       const num = Math.floor(Math.random()*900)+100; // 100-999
       return `${a} ${n} ${num}`;
     }
-
     function sanitizeName(s){
       return String(s||"").replace(/\s+/g, " ").trim().slice(0, 26);
     }
@@ -241,10 +297,10 @@
         console.warn("Game ensure failed", e);
       }
 
-      // Create/merge my membership
+      // Create/merge my membership (default role: hunter)
       try{
         await setDoc(memberRef, {
-          role: "seeker",
+          role: "hunter",
           createdAt: serverTimestamp()
         }, { merge:true });
       } catch(e){
@@ -269,6 +325,7 @@
     // Role switching with a transactional fugitive slot (only in Lobby)
     async function claimFugitive(uid){
       if (!isLobby()){ toast("Roles are locked while live"); return false; }
+      if (!hasConsent){ toast("Agree to Terms to change roles"); return false; }
       const gameRef = doc(db, "games", code);
       const myRef = doc(db, "games", code, "members", uid);
       try{
@@ -292,7 +349,6 @@
         return false;
       }
     }
-
     async function releaseFugitive(uid){
       if (!isLobby()){ toast("Roles are locked while live"); return; }
       const gameRef = doc(db, "games", code);
@@ -307,9 +363,9 @@
           if (current === uid){
             tx.set(gameRef, { fugitiveUid: null }, { merge:true });
           }
-          tx.set(myRef, { role: "seeker" }, { merge:true });
+          tx.set(myRef, { role: "hunter" }, { merge:true });
         });
-        toast("You are a seeker");
+        toast("You are a hunter");
       }catch(e){
         console.warn("releaseFugitive failed", e);
         toast("Could not switch role");
@@ -328,6 +384,74 @@
       }
     }
 
+    // Consent helpers
+    async function ensureConsentOrPrompt(db, code, uid){
+      const memberRef = doc(db, "games", code, "members", uid);
+      const snap = await getDoc(memberRef);
+      const m = snap.exists() ? (snap.data() || {}) : {};
+      const needParam = url.searchParams.get('needconsent') === '1';
+      const ok = m.ageAffirmed === true && !!m.locationConsentAt;
+      hasConsent = !!ok;
+      if (ok && !needParam){
+        setLobbyControlsEnabled(true);
+        return true;
+      }
+      // block controls & show overlay
+      setLobbyControlsEnabled(false);
+      consentEl.style.display = 'flex';
+      consentEl.setAttribute('aria-hidden', 'false');
+      return false;
+    }
+
+    consentBox.addEventListener('change', () => {
+      consentAgree.disabled = !consentBox.checked;
+    });
+    consentLeave.addEventListener('click', () => {
+      location.href = "index.html";
+    });
+    consentAgree.addEventListener('click', async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      await setDoc(doc(db, "games", code, "members", uid), {
+        ageAffirmed: true,
+        locationConsentAt: serverTimestamp(),
+        policyVer: "2025-08-16"
+      }, { merge:true });
+      hasConsent = true;
+      consentEl.style.display = 'none';
+      consentEl.setAttribute('aria-hidden', 'true');
+      toast("Thanks — you’re good to go.");
+      setLobbyControlsEnabled(true);
+    });
+
+    // Leave game
+    async function leaveGame(){
+      if (!confirm("Leave this game? Your codename and lobby entry will be removed.")) return;
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      const gameRef = doc(db, "games", code);
+      const myRef = doc(db, "games", code, "members", uid);
+      try{
+        await runTransaction(db, async (tx) => {
+          const gDoc = await tx.get(gameRef);
+          if (gDoc.exists()){
+            const g = gDoc.data() || {};
+            const patch = {};
+            if (g.fugitiveUid === uid) patch.fugitiveUid = null;
+            if (g.hostUid === uid) patch.hostUid = deleteField();
+            if (Object.keys(patch).length) tx.set(gameRef, patch, { merge:true });
+          }
+        });
+        await deleteDoc(myRef);
+        location.href = "index.html";
+      }catch(e){
+        console.warn("Leave failed", e);
+        toast("Could not leave the game");
+      }
+    }
+
+    leaveBtn.addEventListener('click', leaveGame);
+
     // Wiring
     signInAnonymously(auth).catch(console.error);
     onAuthStateChanged(auth, async user => {
@@ -335,6 +459,7 @@
       me.uid = user.uid;
 
       await ensureGameAndMembership(me.uid);
+      await ensureConsentOrPrompt(db, code, me.uid);
 
       const gameRef = doc(db, "games", code);
       const myRef = doc(db, "games", code, "members", me.uid);
@@ -362,25 +487,29 @@
         infoPingMinutes.textContent = Number(rules.ping_minutes ?? 5);
         infoTagM.textContent = Number(rules.tag_meters ?? 5);
         infoUncM.textContent = Number(lobbyCfg.uncertaintyM ?? rules.uncertainty_m ?? 50);
+        infoRevealRemain.textContent = Number(rules.reveal_minutes_remaining ?? 15);
 
         // Show fugitive slot owner (by codename if we have it in roster)
         const fugUid = game.fugitiveUid || null;
         const name = fugUid ? (roster.find(r => r.uid === fugUid)?.displayName || fugUid.slice(0,6)+"…") : "—";
         fugitiveSlotEl.textContent = `Fugitive: ${name}`;
 
-        // Host start gating: 1 fugitive + >=1 seeker (allow start even if status shows live)
+        // Host start gating: 1 fugitive + >=1 hunter
         const total = roster.length;
         const fugitiveCount = fugUid ? 1 : 0;
-        const seekers = Math.max(0, total - fugitiveCount);
+        const hunters = Math.max(0, total - fugitiveCount);
         if (me.isHost){
-          const ok = (fugitiveCount === 1) && (seekers >= 1);
+          const ok = (fugitiveCount === 1) && (hunters >= 1) && hasConsent;
           startBtn.disabled = !ok;
           startMsg.textContent = ok
             ? (game.status === "lobby" ? 'Ready to start.' : 'Ready — pressing Start will (re)arm timers and keep the round live.')
-            : 'Need exactly 1 fugitive and at least 1 seeker.';
+            : 'Need exactly 1 fugitive and at least 1 hunter (and you must agree to Terms).';
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
           hostLine.textContent = me.isHost ? 'You are the host.' : '';
         }
+
+        // Also gate “Join map” if consent missing
+        setLobbyControlsEnabled(!!hasConsent);
       });
 
       // Roster listener
@@ -398,76 +527,79 @@
           const isFugitive = (fugUid && fugUid === m.uid) || m.role === "fugitive";
           const isHostRow = game && game.hostUid === m.uid;
 
-        const row = document.createElement('div');
-        row.className = 'member';
+          const row = document.createElement('div');
+          row.className = 'member';
 
-        const left = document.createElement('div');
-        left.className = 'left';
-        left.innerHTML = `
-          <div class="name">
-            ${name}
-            ${isHostRow ? '<span class="hostBadge" title="Host">👑 Host</span>' : ''}
-            ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}
-          </div>
-          <div class="subtle mono">#${m.uid.slice(0,6)}</div>
-        `;
-        row.appendChild(left);
+          const left = document.createElement('div');
+          left.className = 'left';
+          left.innerHTML = `
+            <div class="name">
+              ${name}
+              ${isHostRow ? '<span class="hostBadge" title="Host">👑 Host</span>' : ''}
+              ${isMe ? '<button class="btn sm ghost" id="rn_'+m.uid+'" type="button" style="margin-left:6px;">Rename</button>' : ''}
+            </div>
+            <div class="subtle mono">#${m.uid.slice(0,6)}</div>
+          `;
+          row.appendChild(left);
 
-        const right = document.createElement('div');
-        if (isMe){
-          // my role controls (locked when not in Lobby)
-          const wrap = document.createElement('div');
-          wrap.className = 'role';
+          const right = document.createElement('div');
+          if (isMe){
+            // my role controls (locked when not in Lobby or no consent)
+            const wrap = document.createElement('div');
+            wrap.className = 'role';
 
-          const btnF = document.createElement('button');
-          btnF.type = 'button';
-          btnF.className = 'seg' + (isFugitive ? ' active' : '');
-          btnF.textContent = 'Fugitive';
-          btnF.disabled = roundLocked || (!isFugitive && !!fugUid); // taken or locked
-          if (roundLocked) btnF.title = "Roles are locked while the round is live";
-          btnF.addEventListener('click', async () => {
-            if (isFugitive) return;
-            await claimFugitive(me.uid);
-          });
+            const btnF = document.createElement('button');
+            btnF.type = 'button';
+            btnF.className = 'seg' + (isFugitive ? ' active' : '');
+            btnF.textContent = 'Fugitive';
+            btnF.disabled = roundLocked || !hasConsent || (!isFugitive && !!fugUid);
+            if (roundLocked) btnF.title = "Roles are locked while the round is live";
+            if (!hasConsent) btnF.title = "Agree to Terms to change roles";
+            btnF.addEventListener('click', async () => {
+              if (btnF.disabled) return;
+              await claimFugitive(me.uid);
+            });
 
-          const btnS = document.createElement('button');
-          btnS.type = 'button';
-          btnS.className = 'seg' + (!isFugitive ? ' active' : '');
-          btnS.textContent = 'Seeker';
-          btnS.disabled = roundLocked; // cannot change while live
-          if (roundLocked) btnS.title = "Roles are locked while the round is live";
-          btnS.addEventListener('click', async () => {
-            if (!isFugitive) return;
-            await releaseFugitive(me.uid);
-          });
+            const btnH = document.createElement('button');
+            btnH.type = 'button';
+            btnH.className = 'seg' + (!isFugitive ? ' active' : '');
+            btnH.textContent = 'Hunter';
+            btnH.disabled = roundLocked || !hasConsent;
+            if (roundLocked) btnH.title = "Roles are locked while the round is live";
+            if (!hasConsent) btnH.title = "Agree to Terms to change roles";
+            btnH.addEventListener('click', async () => {
+              if (btnH.disabled) return;
+              if (!isFugitive) return;
+              await releaseFugitive(me.uid);
+            });
 
-          wrap.appendChild(btnF);
-          wrap.appendChild(btnS);
-          right.appendChild(wrap);
-        } else {
-          // show role pill resolved by the slot
-          const tag = document.createElement('div');
-          tag.className = 'pill';
-          tag.textContent = isFugitive ? 'Fugitive' : 'Seeker';
-          right.appendChild(tag);
-        }
-        row.appendChild(right);
-        items.push(row);
+            wrap.appendChild(btnF);
+            wrap.appendChild(btnH);
+            right.appendChild(wrap);
+          } else {
+            // show role pill resolved by the slot
+            const tag = document.createElement('div');
+            tag.className = 'pill';
+            tag.textContent = isFugitive ? 'Fugitive' : 'Hunter';
+            right.appendChild(tag);
+          }
+          row.appendChild(right);
+          items.push(row);
 
-        // wire rename button after insert
-        setTimeout(() => {
-          const rn = document.getElementById('rn_'+m.uid);
-          if (rn) rn.addEventListener('click', renameMe);
-        }, 0);
-      });
+          // wire rename button after insert
+          setTimeout(() => {
+            const rn = document.getElementById('rn_'+m.uid);
+            if (rn) rn.addEventListener('click', renameMe);
+          }, 0);
+        });
 
         memberList.replaceChildren(...items);
 
         // counts
         const total = roster.length;
         const fugitiveCount = (game && game.fugitiveUid) ? 1 : 0;
-        const seekerCount = Math.max(0, total - fugitiveCount);
-        countPill.textContent = `${total} player${total===1?'':'s'} — ${fugitiveCount} fugitive • ${seekerCount} seeker${seekerCount===1?'':'s'}`;
+        const hunterCount = Math.max(0, total - fugitiveCount);
+        countPill.textContent = `${total} player${total===1?'':'s'} — ${fugitiveCount} fugitive • ${hunterCount} hunter${hunterCount===1?'':'s'}`;
 
         // update fugitiveSlot label (now we may know codename)
         if (game){
@@ -478,11 +610,11 @@
 
         // refresh Start gating
         if (me.isHost){
-          const ok = (fugitiveCount === 1) && (seekerCount >= 1);
+          const ok = (fugitiveCount === 1) && (hunterCount >= 1) && hasConsent;
           startBtn.disabled = !ok;
           startMsg.textContent = ok
             ? (game && game.status === "lobby" ? 'Ready to start.' : 'Ready — pressing Start will (re)arm timers and keep the round live.')
-            : 'Need exactly 1 fugitive and at least 1 seeker.';
+            : 'Need exactly 1 fugitive and at least 1 hunter (and you must agree to Terms).';
           startMsg.style.color = ok ? 'var(--good)' : 'var(--bad)';
         }
 
@@ -506,13 +638,15 @@
         try{ await navigator.clipboard.writeText(code); toast('Code copied'); } catch {}
       });
       copyLinkBtn.addEventListener('click', async () => {
-        const url = `${location.origin}/lobby.html?code=${encodeURIComponent(code)}`;
-        try{ await navigator.clipboard.writeText(url); toast('Link copied'); } catch {}
+        const u = `${location.origin}/lobby.html?code=${encodeURIComponent(code)}`;
+        try{ await navigator.clipboard.writeText(u); toast('Link copied'); } catch {}
       });
       openGameplayBtn.addEventListener('click', () => {
+        if (!hasConsent){ toast("Agree to Terms first"); return; }
         location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
       });
       openAsHostBtn.addEventListener('click', () => {
+        if (!hasConsent){ toast("Agree to Terms first"); return; }
         location.href = `gameplay.html?code=${encodeURIComponent(code)}`;
       });
 
@@ -522,24 +656,26 @@
 
         const fugUid = (game && game.fugitiveUid) || null;
         if (!fugUid){ toast("Assign a fugitive first"); return; }
-        const seekers = Math.max(0, roster.length - 1);
-        if (seekers < 1){ toast("Need at least one seeker"); return; }
+        const hunters = Math.max(0, roster.length - 1);
+        if (hunters < 1){ toast("Need at least one hunter"); return; }
 
-        // compute times if missing, otherwise preserve existing
         const now = Date.now();
         const rules = (game && game.rules) || {};
         const mins = Number(rules.game_minutes ?? 30);
         const durMs = Math.max(1, mins) * 60 * 1000;
+
         const hasStartsAt = !!(game && game.startsAt);
         const hasEndsAt   = !!(game && game.endsAt);
         const startsAt = hasStartsAt ? null : new Date(now + 5000); // 5s arm delay if not set
-        const endsAt   = hasEndsAt   ? null : new Date(now + 5000 + durMs);
+        const endsAt   = hasEndsAt   ? null : new Date((hasStartsAt ? (new Date(game.startsAt).getTime()) : (now + 5000)) + durMs);
+
         let revealAt = null;
-        if (game && game.revealAt) {
-          revealAt = null; // keep existing
-        } else if (startsAt && endsAt) {
-          const total = endsAt.getTime() - startsAt.getTime();
-          revealAt = new Date(endsAt.getTime() - Math.floor(total * 0.95)); // first 5%
+        if (!game || !game.revealAt) {
+          const remainMin = Number(rules.reveal_minutes_remaining || 0);
+          if (remainMin > 0 && (endsAt || game?.endsAt)) {
+            const endMs = endsAt ? endsAt.getTime() : new Date(game.endsAt).getTime();
+            revealAt = new Date(Math.max(endMs - remainMin*60000, (startsAt ? startsAt.getTime() : Date.now()) + 1000));
+          }
         }
 
         try{
