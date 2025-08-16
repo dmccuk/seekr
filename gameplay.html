@@ -35,17 +35,25 @@
     .brand{ font-weight:900; font-size:28px; letter-spacing:.6px; color:var(--ink) }
     .tag{ display:inline-block; font-size:13px; font-weight:600; color:var(--muted); padding:6px 10px; border-radius:999px; background:linear-gradient(180deg,#fff,#f7f9ff); border:1px solid var(--line) }
 
+    /* brighter/larger variant for the role badge */
     .tag.role{
-      font-size:16px; font-weight:800; color:var(--brand);
-      padding:8px 14px; background:linear-gradient(180deg,#fff,#f0f4ff);
-      border-color:#cdd8ff; box-shadow:0 8px 22px rgba(30,76,255,.14);
+      font-size:16px;
+      font-weight:800;
+      color:var(--brand);
+      padding:8px 14px;
+      background:linear-gradient(180deg,#fff,#f0f4ff);
+      border-color:#cdd8ff;
+      box-shadow:0 8px 22px rgba(30,76,255,.14);
     }
 
     .card{ position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.06); }
+    /* add space at the bottom so the floating FAB never overlaps the HUD/timer */
     .mapCard{ padding-bottom:88px; }
     #map{ width:100%; height:min(68vh,560px); border-radius:12px; overflow:hidden }
 
-    .hud{ display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
+    .hud{
+      display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:10px; flex-wrap:wrap;
+    }
     .btn{ appearance:none; border:0; border-radius:12px; padding:12px 14px; font-weight:800; color:#fff; background:linear-gradient(135deg,#4facfe,#00f2fe); cursor:pointer; box-shadow:0 4px 12px rgba(79,172,254,.35); }
     .btn.secondary{ background:linear-gradient(135deg,#00f2fe,#4facfe); }
     .pill{ display:inline-block; background:#eef2fa; border:1px solid var(--line); border-radius:999px; padding:8px 12px; font-size:13px; color:#55627a; }
@@ -61,18 +69,32 @@
     .overlay .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px }
     .overlay .actions .btn{ min-width:120px }
 
-    /* Labels */
+    /* Labels for pings/trails */
     .leaflet-tooltip.trailLabel{
-      background: rgba(255,255,255,.9); border: 1px solid var(--line); border-radius: 6px;
-      padding: 2px 6px; font-size: 11px; color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,.1);
+      background: rgba(255,255,255,.9);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: var(--ink);
+      box-shadow: 0 2px 6px rgba(0,0,0,.1);
     }
+    /* Tiny seeker name labels */
     .leaflet-tooltip.seekLabel{
-      background: rgba(255,255,255,.92); border: 1px solid #dde3ef; border-radius: 6px;
-      padding: 1px 4px; font-size: 10px; color:#1c2437; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      background: rgba(255,255,255,.92);
+      border: 1px solid #dde3ef;
+      border-radius: 6px;
+      padding: 1px 4px;
+      font-size: 10px;
+      color:#1c2437;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
 
-    /* Dev-only Testing UI */
-    .testing-toggle{ position: fixed; right: 16px; top: 16px; z-index: 9999; display:none; }
+    /* Dev-only Testing button + panel */
+    .testing-toggle{
+      position: fixed; right: 16px; top: 16px; z-index: 9999;
+      display:none;
+    }
     .testing-panel{
       position: fixed; right: 16px; top: 68px; z-index: 9999; display:none;
       background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(20,32,70,.12);
@@ -86,19 +108,27 @@
     .testing-panel hr{ border:0; border-top:1px solid var(--line); margin:10px 0 6px 0; }
 
     /* Recenter FAB */
-    .mapFab{ position:absolute; right:16px; bottom:16px; z-index:800; padding:10px 12px; }
+    .mapFab{
+      position:absolute; right:16px; bottom:16px; z-index:800;
+      padding:10px 12px;
+    }
 
     /* Chat */
     .chat{ margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; }
-    .chat-log{ max-height:140px; overflow:auto; padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
+    .chat-log{
+      max-height:140px; overflow:auto;
+      padding:8px 10px; display:flex; flex-direction:column; gap:6px;
+    }
     .chat-msg{ display:flex; gap:8px; align-items:flex-start; font-size:13px; }
     .chat-msg .name{ font-weight:800; color:var(--brand); }
     .chat-msg .text{ color:var(--ink); }
     .chat-msg .time{ font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
     .chat-form{ display:flex; gap:8px; border-top:1px solid var(--line); padding:8px; }
     .chat-form input{
-      flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-family:inherit; background:#fff;
+      flex:1; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-family:inherit;
+      background:#fff;
     }
+    /* Mobile: stack chat input and Send button, button below on the left */
     @media (max-width: 640px){
       .chat-form{ flex-direction:column; gap:6px; }
       .chat-form .btn{ align-self:flex-start; }
@@ -140,6 +170,7 @@
     <header>
       <div>
         <div class="brand">Seekr.run</div>
+        <!-- the tag will get the .role class applied once we know the role -->
         <div class="tag" id="gameTag">Loading game...</div>
       </div>
     </header>
@@ -147,6 +178,7 @@
     <section class="card mapCard">
       <div id="map" aria-label="Live game map"></div>
 
+      <!-- Recenter FAB (accessibility-friendly) -->
       <button id="btnRecenter" class="btn secondary mapFab" type="button" aria-label="Recenter on my location" title="Recenter on my location">
         Recenter
       </button>
@@ -274,28 +306,31 @@
     let autoPingEveryMs = 0;
     let didInitialAutoPing = false;
 
-    // Track live status
-    let gameLive = false;
-
     // Seeker trail (fugitive)
-    const trailColor = '#ff9500';
+    const trailColor = '#ff9500'; // orange
     let trailLayer = null;
     let trailLine = null;
     let trailListenerStarted = false;
     let currentFugitiveUid = null;
 
-    // Pursuit helper for bots
+    // NEW: pursuit target for bots
     let lastFugPingLL = null;
 
-    // Seekers visualization
+    // Seeker-to-seeker layer
     let seekersLayer = null;
-    const seekersMarkers = new Map();
+    const seekersMarkers = new Map(); // uid -> L.circleMarker
     let seekersRenderTimer = null;
     const SEEKERS_RENDER_MS = 60000;
-    const seekersLive = new Map();
-    const memberNames = new Map();
+    const seekersLive = new Map();   // uid -> {lat,lng,updatedAt}
+    const memberNames = new Map();   // uid -> display name
 
-    // --- Local SEEKER bots (optional DEV) ---
+    // --- Dynamic extraction radius controls ---
+    let currentEndMs = 0;
+    let extractionBaseM = 30;         // default win radius
+    let extractionFinalM = 50;        // radius during the final window
+    let extractionBoostMin = 2;       // minutes left when we boost the radius
+
+    // --- Local SEEKER bots (with pursuit) ---
     let botsLayer = null;
     let botTimer = null;
     const bots = [];
@@ -373,20 +408,18 @@
     }
     let seekersNowPlus = [];
 
-    // --- Fugitive bot (DEV) ---
+    // --- Local FUGITIVE bot (heads to extraction after reveal) ---
     let fugLayer = null;
     let fugMoveTimer = null;
     let fugPingTimer = null;
-    let fug = null;
+    let fug = null; // {lat,lng,headingRad,speedMps, marker, wanderTo}
 
     function ensureTrailLayer(){
       if (!trailLayer) trailLayer = L.layerGroup().addTo(map);
       if (!trailLine)  trailLine  = L.polyline([], { color:'#ff9500', weight:2, dashArray:'4,6', opacity:0.95 }).addTo(trailLayer);
     }
 
-    // SEEKER-ONLY renderer for fugitive pings/trail
     function addLocalFugitivePing(lat, lng, when = new Date()){
-      if (role !== "seeker") return;
       ensureTrailLayer();
       trailLine.addLatLng([lat, lng]);
       const mk = L.circleMarker([lat,lng], { radius:5, weight:2, color:'#ff9500', fillColor:'#ff9500', fillOpacity:0.9 }).addTo(trailLayer);
@@ -454,9 +487,8 @@
         }
       }, 1500);
 
-      if (role === "seeker") {
-        addLocalFugitivePing(fug.lat, fug.lng, new Date());
-      }
+      ensureTrailLayer();
+      addLocalFugitivePing(fug.lat, fug.lng, new Date());
 
       fugPingTimer = setInterval(async ()=>{
         if (!fug) return;
@@ -471,9 +503,7 @@
           }catch(e){ console.warn("fugitive bot ping failed", e); }
         }
 
-        if (role === "seeker") {
-          addLocalFugitivePing(fug.lat, fug.lng, now);
-        }
+        addLocalFugitivePing(fug.lat, fug.lng, now);
         lastFugPingLL = L.latLng(fug.lat, fug.lng);
       }, Math.max(5, pingS) * 1000);
 
@@ -487,10 +517,24 @@
       fug = null;
     }
 
+    // Testing UI wiring
+    if (DEV){
+      btnStartBots.addEventListener('click', () => {
+        const n = Math.max(1, Math.min(8, Number(botCountInput.value || 3)));
+        if (!areaCenterLL || !areaRadiusM){ toast("Bots need the zone to load first."); return; }
+        spawnBots(n);
+        toast(`Started ${n} bot${n>1?'s':''}.`);
+      });
+      btnStopBots.addEventListener('click', () => { stopBots(); toast("Bots stopped."); });
+
+      btnStartFug.addEventListener('click', () => { startFugitiveBot(); });
+      btnStopFug.addEventListener('click', () => { stopFugitiveBot(); toast("Fugitive bot stopped."); });
+    }
+
     // Code
     const code = url.searchParams.get("code")?.toUpperCase() || "";
 
-    // Map init
+    // Map init (prefer Canvas renderer)
     function initMap(){
       map = L.map('map', { zoomControl:true, attributionControl:false, preferCanvas:true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
@@ -552,7 +596,7 @@
       }
     }
 
-    // Save a ping for the current player
+    // Save a ping for the current player (used by fugitive auto-ping & round start)
     async function saveCurrentPing(reason = "manual"){
       try{
         if (!lastCoords || !code) return;
@@ -563,22 +607,12 @@
           role, uid, reason,
           createdAt: serverTimestamp()
         });
-        if (role === "seeker"){
-          addLocalFugitivePing(lastCoords.latitude, lastCoords.longitude, new Date());
-        }
+        // NOTE: we intentionally do NOT render the breadcrumb for fugitives,
+        // so only seekers see the trail.
         if (role === "fugitive"){
           lastFugPingLL = L.latLng(lastCoords.latitude, lastCoords.longitude);
         }
       }catch(e){ console.warn("saveCurrentPing failed", e); }
-    }
-
-    // First breadcrumb ASAP when live + GPS
-    function maybeInitialFugitivePing(reason = "round-start"){
-      if (didInitialAutoPing) return;
-      if (role === "fugitive" && gameLive && lastCoords){
-        didInitialAutoPing = true;
-        saveCurrentPing(reason).catch(()=>{ didInitialAutoPing = false; });
-      }
     }
 
     // Location
@@ -590,7 +624,7 @@
       if (!('geolocation' in navigator)){ toast('Geolocation not available in this browser.'); return; }
 
       navigator.geolocation.getCurrentPosition(
-        pos => { lastCoords = pos.coords; updateMyMarker(pos.coords.latitude, pos.coords.longitude, true); maybeInitialFugitivePing("gps-prime"); },
+        pos => { lastCoords = pos.coords; updateMyMarker(pos.coords.latitude, pos.coords.longitude, true); },
         err => { console.warn('getCurrentPosition error', err); toast('Please allow location to see your dot.'); },
         { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
@@ -601,7 +635,6 @@
           updateMyMarker(pos.coords.latitude, pos.coords.longitude, false);
           maybeCheckExtractionWin(pos.coords);
           maybeCheckTaggedBySeeker(pos.coords);
-          maybeInitialFugitivePing("gps-watch");
         },
         err => {
           console.warn('watchPosition error', err);
@@ -629,6 +662,7 @@
     }
 
     function stopAllRealtime(){
+      // intervals/timers
       if (tickId) { clearInterval(tickId); tickId = null; }
       if (autoPingId) { clearInterval(autoPingId); autoPingId = null; }
       if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
@@ -636,14 +670,28 @@
       if (botTimer) { clearInterval(botTimer); botTimer = null; }
       if (fugMoveTimer) { clearInterval(fugMoveTimer); fugMoveTimer = null; }
       if (fugPingTimer) { clearInterval(fugPingTimer); fugPingTimer = null; }
+
+      // geolocation
       if (geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+
+      // Firestore listeners
       unsubs.splice(0).forEach(u => { try{ u(); }catch{} });
     }
 
     function maybeCheckExtractionWin(coords){
       if (role !== "fugitive" || !secretLL || gameEnded) return;
       const d = map.distance([coords.latitude, coords.longitude], secretLL);
-      if (d <= 10){
+
+      // Dynamic extraction radius: base, with a boost in the final window
+      let radius = extractionBaseM;
+      if (currentEndMs && extractionBoostMin > 0) {
+        const leftMs = currentEndMs - Date.now();
+        if (leftMs <= extractionBoostMin * 60000) {
+          radius = Math.max(radius, extractionFinalM);
+        }
+      }
+
+      if (d <= radius){
         toast("You reached extraction");
         endGame("fugitive", "extract");
       }
@@ -682,9 +730,7 @@
       unsubs.push(u);
     }
 
-    // FUGITIVE-ONLY: reveal extraction (subscribe only after server revealAt)
     function startSecretListener(){
-      if (role !== "fugitive") return; // hard guard
       const secretRef = doc(db, "games", code, "private", "secret");
       const u = onSnapshot(secretRef, snap => {
         if (!snap.exists() || extractMarker) return;
@@ -693,7 +739,7 @@
         extractMarker = L.circleMarker([lat, lng], { radius: 8, weight: 3, color: '#ffffff', fillColor: '#ff3b30', fillOpacity: 0.95 }).addTo(map);
         secretLL = L.latLng(lat, lng);
         map.setView([lat, lng], Math.max(map.getZoom(), 16));
-        toast("Extraction revealed, get within 10 meters to win.");
+        toast("Extraction revealed, get within range to win.");
       }, err => console.error("Secret listener error", err));
       unsubs.push(u);
     }
@@ -724,7 +770,7 @@
       unsubs.push(u);
     }
 
-    // Seekers see other seekers
+    // Seekers see other seekers (and we inject bots locally)
     function startSeekersVisualizer(){
       if (seekersLayer) return;
       seekersLayer = L.layerGroup().addTo(map);
@@ -748,10 +794,12 @@
             seekersLive.set(docu.id, { lat:d.lat, lng:d.lng, updatedAt:d.updatedAt });
           }
         });
+        // Render immediately on every snapshot (fixes one-way visibility)
         renderSeekersImmediate();
       });
       unsubs.push(u2);
 
+      // Smaller fallback repaint
       if (!seekersRenderTimer) seekersRenderTimer = setInterval(renderSeekersImmediate, 15000);
     }
     function renderSeekersImmediate(){
@@ -774,7 +822,7 @@
       }
     }
 
-    // --- Time helpers ---
+    // --- Time helpers (single source of truth) ---
     function toMs(v){
       if (!v) return 0;
       if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
@@ -787,12 +835,18 @@
       return 0;
     }
 
+    // NEW: long-game formatter
     function formatLeft(leftMs, useHMS){
       const totalSec = Math.max(0, Math.floor(leftMs / 1000));
       const s = totalSec % 60;
       const m = Math.floor(totalSec / 60) % 60;
       const h = Math.floor(totalSec / 3600);
-      return useHMS ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${Math.floor(totalSec / 60)}:${String(s).padStart(2,"0")}`;
+      if (useHMS) {
+        return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      } else {
+        const mm = Math.floor(totalSec / 60);
+        return `${mm}:${String(s).padStart(2,"0")}`;
+      }
     }
 
     function computeTimes(g){
@@ -803,22 +857,22 @@
       if ((!endMs && startMs && durationMs) || (startMs && endMs && (endMs - startMs) < Math.min(120000, durationMs * 0.1))) {
         endMs = startMs + durationMs;
       }
-      // We no longer *use* the client-computed reveal for subscribing; server's g.revealAt gates reveal.
       let revealAtMs = toMs(g?.revealAt) || 0;
       const revealRemainMin = Number(g?.rules?.reveal_minutes_remaining || 0);
       if (!revealAtMs && endMs && revealRemainMin > 0) {
-        revealAtMs = endMs - revealRemainMin * 60000; // only for seeker toast timing if server hasn't written yet
+        revealAtMs = endMs - revealRemainMin * 60000;
       }
       return { startMs, endMs, revealAtMs, durationMs };
     }
 
-    function startCountdown({startMs, endMs}){
+    // UPDATED: H:MM:SS for 60+ minute games
+    function startCountdown({startMs, endMs, revealAtMs}){
       if (tickId) { clearInterval(tickId); tickId = null; }
       const now = Date.now();
       if (!startMs || !endMs || endMs <= now) { timePill.textContent = "Time, waiting"; return; }
 
       const totalMs = (endMs && startMs) ? (endMs - startMs) : 0;
-      const useHMS = totalMs >= 60 * 60 * 1000;
+      const useHMS = totalMs >= 60 * 60 * 1000; // 60+ minutes
 
       const tick = () => {
         const n = Date.now();
@@ -830,6 +884,8 @@
         }
         const left = Math.max(0, endMs - n);
         timePill.textContent = `Time, ${formatLeft(left, useHMS)}`;
+        if (role === "fugitive" && revealAtMs && n >= revealAtMs && !extractMarker) startSecretListener();
+        if (role === "seeker" && revealAtMs && n >= revealAtMs && !revealToastShown) { toast("Extraction location has been disclosed to fugitives."); revealToastShown = true; }
         if (left === 0) { clearInterval(tickId); tickId = null; }
       };
       tick();
@@ -841,6 +897,7 @@
       if (!code) return;
       const qChat = query(collection(db, "games", code, "chat"), orderBy("createdAt", "asc"), limit(200));
       const u = onSnapshot(qChat, snap => {
+        // Rebuild quickly for simplicity/ordering
         chatLog.innerHTML = '';
         const frag = document.createDocumentFragment();
         snap.forEach(docu => {
@@ -860,20 +917,30 @@
         chatInput.value = '';
         try{
           const uid = auth.currentUser?.uid || null;
-          await addDoc(collection(db, "games", code, "chat"), { uid, name: myName, role, text: txt, createdAt: serverTimestamp() });
+          await addDoc(collection(db, "games", code, "chat"), {
+            uid, name: myName, role, text: txt, createdAt: serverTimestamp()
+          });
         }catch(e){ console.warn("chat send failed", e); toast("Could not send message"); }
       });
     }
     function renderChatMsg(d){
       const row = document.createElement('div');
       row.className = 'chat-msg';
-      const name = document.createElement('span'); name.className = 'name'; name.textContent = d.name || 'Player';
-      const text = document.createElement('span'); text.className = 'text'; text.textContent = d.text;
-      const time = document.createElement('span'); time.className = 'time';
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = d.name || 'Player';
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = d.text; // safe: no HTML injection
+      const time = document.createElement('span');
+      time.className = 'time';
       const when = d.createdAt?.toDate?.() || new Date();
-      const hh = String(when.getHours()).padStart(2,'0'); const mm = String(when.getMinutes()).padStart(2,'0');
+      const hh = String(when.getHours()).padStart(2,'0');
+      const mm = String(when.getMinutes()).padStart(2,'0');
       time.textContent = `${hh}:${mm}`;
-      row.appendChild(name); row.appendChild(text); row.appendChild(time);
+      row.appendChild(name);
+      row.appendChild(text);
+      row.appendChild(time);
       return row;
     }
 
@@ -882,7 +949,7 @@
       if (!user) return;
       if (!code) { toast("Missing code in URL"); return; }
 
-      // Read my membership to infer role
+      // Read my membership to infer role (created via lobby)
       const memberRef = doc(db, "games", code, "members", user.uid);
       let storedRole = null;
       try {
@@ -896,22 +963,29 @@
       role = storedRole || null;
       if (!role) { location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
+      // Apply bigger/brighter role tag and grammar ("a Seeker"/"a Fugitive")
       const roleLabel = role === "seeker" ? "a Seeker" : (role === "fugitive" ? "a Fugitive" : role);
       gameTag.textContent = "Game " + code + " • You are " + roleLabel;
       gameTag.classList.add("role");
 
       if (DEV) { btnTesting.style.display = 'inline-block'; testingPanel.style.display = 'block'; }
+
       if (role === "seeker") { startPresencePublisher(); startSeekersVisualizer(); }
       if (role === "fugitive") { startReadingSeekersForFugitive(); }
 
+      // Start chat after we know who we are
       startChat();
 
       const gameRef = doc(db, "games", code);
 
-      // PRIME from server
+      // PRIME from server to avoid 00:01 drift
       try {
         const srv = await getDocFromServer(gameRef);
-        if (srv.exists()) { startCountdown(computeTimes(srv.data())); }
+        if (srv.exists()) {
+          const times = computeTimes(srv.data());
+          currentEndMs = times.endMs || 0;  // store for dynamic extraction radius
+          startCountdown(times);
+        }
       } catch (e) { console.warn("Server prime failed:", e); }
 
       // Live updates
@@ -923,7 +997,7 @@
 
           if (g.status === "lobby") { toast("Waiting in lobby…"); location.replace(`lobby.html?code=${encodeURIComponent(code)}`); return; }
 
-          // Fugitive changes reset trail (seekers only)
+          // Fugitive changes reset trail
           const nextFug = g.fugitiveUid || null;
           const fugChanged = nextFug !== currentFugitiveUid;
           currentFugitiveUid = nextFug;
@@ -960,6 +1034,11 @@
           uncertaintyM = Number(cfg.uncertaintyM ?? g.rules?.uncertainty_m ?? 50);
           tagMeters    = Number(g.rules?.tag_meters ?? 2);
 
+          // NEW: extraction win radii (with sensible defaults)
+          extractionBaseM    = Number(g.rules?.extraction_radius_m ?? 30);
+          extractionFinalM   = Number(g.rules?.extraction_final_radius_m ?? extractionBaseM);
+          extractionBoostMin = Number(g.rules?.extraction_boost_minutes ?? 2);
+
           // Fugitive auto pings (real player)
           const pingMinutes = Number(g.rules?.ping_minutes || 0);
           const desiredMs = pingMinutes > 0 ? pingMinutes * 60 * 1000 : 0;
@@ -967,28 +1046,18 @@
             if (autoPingId && autoPingEveryMs !== desiredMs) { clearInterval(autoPingId); autoPingId = null; }
             if (!autoPingId && desiredMs > 0) {
               autoPingEveryMs = desiredMs;
-              if (lastCoords && !didInitialAutoPing) { didInitialAutoPing = true; saveCurrentPing("interval-start").catch(()=>{ didInitialAutoPing = false; }); }
+              didInitialAutoPing = false;
+              if (lastCoords) saveCurrentPing("interval-start").catch(()=>{});
               autoPingId = setInterval(() => saveCurrentPing("interval"), desiredMs);
             }
           } else { if (autoPingId) { clearInterval(autoPingId); autoPingId = null; } }
 
-          // Times & countdown + reveal control
-          const { startMs, endMs, revealAtMs } = computeTimes(g);
-          gameLive = g.status === "live";
-          startCountdown({ startMs, endMs });
-
-          // Extraction reveal: ONLY when server says it's time (or when client-computed time has passed AND server has set revealAt)
-          const serverRevealAtMs = toMs(g?.revealAt) || 0;
-
-          if (role === "fugitive" && serverRevealAtMs && Date.now() >= serverRevealAtMs && !extractMarker) {
-            startSecretListener();
-          }
-          if (role === "seeker") {
-            // Seekers never subscribe or show marker; they just get a one-time heads up.
-            const now = Date.now();
-            const passed = serverRevealAtMs ? now >= serverRevealAtMs : (revealAtMs ? now >= revealAtMs : false);
-            if (passed && !revealToastShown) { toast("Extraction location has been disclosed to fugitives."); revealToastShown = true; }
-          }
+          // Times & countdown
+          const times = computeTimes(g);
+          currentEndMs = times.endMs || 0; // store for dynamic extraction radius
+          if (role === "fugitive" && g.status === "live" && lastCoords && !didInitialAutoPing) { saveCurrentPing("round-start").catch(()=>{}); didInitialAutoPing = true; }
+          if (role === "fugitive" && times.revealAtMs && Date.now() >= times.revealAtMs && !extractMarker) { startSecretListener(); }
+          startCountdown(times);
         },
         err => { console.error("onSnapshot error for games/%s", code, err); hint.textContent = "Cannot read game, check Firestore rules."; stopAllRealtime(); }
       );
@@ -997,8 +1066,10 @@
 
     signInAnonymously(auth).catch(console.error);
 
-    // Visibility / teardown
-    document.addEventListener('visibilitychange', () => { if (document.hidden) cleanupPresence().catch(()=>{}); });
+    // Visibility/pagetear-down: presence cleanup for seekers
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) cleanupPresence().catch(()=>{});
+    });
     window.addEventListener('pagehide', () => { cleanupPresence(); });
     window.addEventListener('beforeunload', () => {
       cleanupPresence();
